@@ -74,12 +74,21 @@ def compute_semantic_drift(goal_text: str, action_text: str) -> float:
     )
 
 
-def evaluate_intent(event: EventCreate) -> DecisionCreate:
+def evaluate_intent(event: EventCreate, advisory: bool = False) -> DecisionCreate:
     """
     Evaluate action alignment against original_goal using Jaccard keyword overlap.
 
     Args:
         event: Normalised agent event with original_goal.
+        advisory: When True (used for transactions), intent drift is reported as
+            an INFORMATIONAL signal only and never escalates the verdict above
+            ALLOW. Comparing a natural-language goal ("order a coffee") to a
+            transaction's structured fields ("Good Beans Coffee / Flat White")
+            via keyword overlap is inherently lossy, so for transactions the
+            authoritative safety check is ATTVE (Module 2); intent drift merely
+            annotates. This prevents legitimate purchases from being false-
+            flagged as WARN purely because their merchant/item wording differs
+            from the goal sentence.
 
     Returns:
         DecisionCreate with verdict (ALLOW or WARN), reasons, suggested_fix,
@@ -137,6 +146,19 @@ def evaluate_intent(event: EventCreate) -> DecisionCreate:
     threshold = settings.intent_drift_threshold
 
     if jaccard_sim < threshold:
+        if advisory:
+            # Transactions: report drift as information only, never escalate.
+            return DecisionCreate(
+                verdict="ALLOW",
+                reasons=[
+                    f"Intent note (advisory): low keyword overlap ({jaccard_sim:.1%}) "
+                    f"between action wording and goal '{goal}'. Not blocking — "
+                    "ATTVE (Module 2) is authoritative for transaction safety."
+                ],
+                suggested_fix="",
+                module="intent_verification",
+                risk_score=round(min(drift_score, 0.2), 4),
+            )
         verdict = "WARN"
         reasons = [
             f"Intent drift detected: Current action description shows low keyword overlap ({jaccard_sim:.1%}) with original goal.",

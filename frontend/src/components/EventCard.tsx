@@ -118,6 +118,18 @@ export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview 
         </div>
       )}
 
+      {/* ── Explainable Reasoning (Module 11) ──────────────────────────────── */}
+      {decision.explanation && decision.explanation.trim() !== '' && (
+        <div className="mb-3 p-3 rounded-xl bg-sky-50/80 border border-sky-200/80 text-sky-950 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold text-sky-900 mb-1">
+            🧠 Why this decision (Explainable Reasoning):
+          </div>
+          <p className="leading-relaxed pl-1 text-[11px] text-sky-900">
+            {decision.explanation}
+          </p>
+        </div>
+      )}
+
       {/* ── Suggested Fix (Mandatory for WARN / BLOCK) ────────────────────── */}
       {decision.suggested_fix && decision.suggested_fix.trim() !== '' && (
         <div className="mt-3 mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-300/80 text-amber-950 text-xs">

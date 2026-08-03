@@ -105,6 +105,16 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
             </div>
           )}
 
+          {/* Explainable Reasoning (Module 11) */}
+          {decision.explanation && decision.explanation.trim() !== '' && (
+            <div className="p-3 rounded-xl bg-sky-50 border border-sky-200/90 text-sky-950">
+              <div className="text-xs font-semibold text-sky-900 mb-1 flex items-center gap-1.5">
+                🧠 Why this decision:
+              </div>
+              <p className="text-xs text-sky-900 leading-relaxed">{decision.explanation}</p>
+            </div>
+          )}
+
           {/* Policy Evaluation Reasons */}
           <div>
             <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">

@@ -79,6 +79,7 @@ async def evaluate(event_in: EventCreate, db: Session = Depends(get_db)) -> Eval
         suggested_fix=decision_data.suggested_fix,
         module=decision_data.module,
         risk_score=decision_data.risk_score,
+        explanation=getattr(decision_data, "explanation", ""),
         timestamp=datetime.now(timezone.utc),
         human_decision=None,
         human_timestamp=None,

@@ -35,7 +35,14 @@ def evaluate_event(event: EventCreate) -> DecisionCreate:
 
     This is the single entry point called by the /evaluate endpoint.
     """
+    from app.policy.policy_engine import evaluate_policies
+
     results: list[DecisionCreate] = []
+
+    # ── Module 1 — AI Policy Engine runs first, for EVERY source ────────────────
+    # Governance-before-execution: organizational policy is checked before any
+    # statistical/heuristic module. A BLOCK here is authoritative.
+    results.append(evaluate_policies(event))
 
     if event.source == "transaction":
         results.extend(_run_transaction_modules(event))
@@ -55,7 +62,7 @@ def evaluate_event(event: EventCreate) -> DecisionCreate:
             )
         )
 
-    return _aggregate(results)
+    return _aggregate(results, event)
 
 
 # ── Per-source routing ─────────────────────────────────────────────────────────
@@ -67,9 +74,12 @@ def _run_transaction_modules(event: EventCreate) -> list[DecisionCreate]:
     results: list[DecisionCreate] = []
     results.append(evaluate_transaction(event))
 
-    # Module 6 is optional/light for transactions — only run if original_goal set.
+    # Module 6 is optional/light for transactions — only run if original_goal set,
+    # and in ADVISORY mode (informational, never escalates the verdict). ATTVE is
+    # authoritative for transaction safety; keyword drift on structured payment
+    # fields is too lossy to block on.
     if event.original_goal:
-        results.append(evaluate_intent(event))
+        results.append(evaluate_intent(event, advisory=True))
 
     return results
 
@@ -107,9 +117,12 @@ def _run_n8n_modules(event: EventCreate) -> list[DecisionCreate]:
 _VERDICT_SEVERITY: dict[str, int] = {"ALLOW": 0, "WARN": 1, "BLOCK": 2}
 
 
-def _aggregate(results: list[DecisionCreate]) -> DecisionCreate:
+def _aggregate(
+    results: list[DecisionCreate], event: EventCreate | None = None
+) -> DecisionCreate:
     """
-    Merge multiple module results into a single authoritative Decision.
+    Merge multiple module results into a single authoritative Decision, and
+    attach a plain-language explanation (Module 11).
     """
     if not results:
         return DecisionCreate(
@@ -124,10 +137,17 @@ def _aggregate(results: list[DecisionCreate]) -> DecisionCreate:
     worst = max(results, key=lambda d: _VERDICT_SEVERITY[d.verdict])
     final_verdict = worst.verdict
 
-    # Collect all reasons.
+    # Collect reasons. When the final verdict is not ALLOW, drop the noisy
+    # "no concern / not matched" ALLOW reasons so the panel sees only what
+    # actually mattered.
     all_reasons: list[str] = []
     for r in results:
+        if final_verdict != "ALLOW" and r.verdict == "ALLOW":
+            continue
         all_reasons.extend(r.reasons)
+    if not all_reasons:  # everything was ALLOW
+        for r in results:
+            all_reasons.extend(r.reasons)
 
     # Concatenate non-empty suggested_fix strings.
     fixes = [r.suggested_fix for r in results if r.suggested_fix.strip()]
@@ -136,13 +156,25 @@ def _aggregate(results: list[DecisionCreate]) -> DecisionCreate:
     # Average risk scores.
     avg_score = sum(r.risk_score for r in results) / len(results)
 
-    # Modules that contributed.
-    modules = ", ".join(dict.fromkeys(r.module for r in results))
+    # Modules that contributed (skip clean pass-through policy_engine ALLOW noise).
+    modules = ", ".join(
+        dict.fromkeys(
+            r.module for r in results
+            if not (r.module == "policy_engine" and r.verdict == "ALLOW")
+        )
+    ) or ", ".join(dict.fromkeys(r.module for r in results))
 
-    return DecisionCreate(
+    final = DecisionCreate(
         verdict=final_verdict,
         reasons=all_reasons,
         suggested_fix=combined_fix,
         module=modules,
         risk_score=round(avg_score, 4),
     )
+
+    # ── Module 11 — Explainable Safety Reasoning ───────────────────────────────
+    if event is not None:
+        from app.policy.explainability import build_explanation
+        final.explanation = build_explanation(event, results, final)
+
+    return final

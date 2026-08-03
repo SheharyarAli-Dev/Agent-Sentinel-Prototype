@@ -1,0 +1,60 @@
+{
+  "_comment": "Declarative organizational policies for Module 1 (AI Policy Engine). Each policy is evaluated against every event BEFORE module checks. 'action' is the verdict applied if the policy matches. Conditions are ANDed. Supported condition operators: equals, not_equals, contains (case-insensitive substring on a string field or any step field), in, not_in, gt, gte, lt, lte, regex.",
+  "policies": [
+    {
+      "id": "POL-001",
+      "description": "Block transactions to explicitly blacklisted merchants.",
+      "applies_to": ["transaction"],
+      "conditions": [
+        {"field": "payload.merchant_id", "op": "in", "value": ["MERCH_BLACKLIST", "MERCH_666"]}
+      ],
+      "action": "BLOCK",
+      "message": "Merchant is on the organizational blacklist and may not be transacted with.",
+      "suggested_fix": "Remove this merchant from the workflow or request a security exception from the finance team."
+    },
+    {
+      "id": "POL-002",
+      "description": "Hard financial ceiling: block any single autonomous transaction above the absolute cap, regardless of merchant trust.",
+      "applies_to": ["transaction"],
+      "conditions": [
+        {"field": "payload.amount", "op": "gt", "value": 500}
+      ],
+      "action": "BLOCK",
+      "message": "Transaction exceeds the absolute autonomous spend ceiling ($500). Autonomous agents may not authorize payments this large.",
+      "suggested_fix": "Split the purchase, or route it to a human with financial authority for manual authorization."
+    },
+    {
+      "id": "POL-003",
+      "description": "Defense-in-depth: block destructive shell patterns on coding agents even before planning verification runs.",
+      "applies_to": ["cursor", "n8n"],
+      "conditions": [
+        {"field": "any_step", "op": "regex", "value": "rm\\s+-rf\\s+/|drop\\s+table|mkfs|dd\\s+if=|--no-preserve-root|:\\(\\)\\s*\\{"}
+      ],
+      "action": "BLOCK",
+      "message": "Proposed action contains a known destructive command pattern prohibited by organizational policy.",
+      "suggested_fix": "Scope the command to a specific non-system path, or obtain explicit human approval for the destructive operation."
+    },
+    {
+      "id": "POL-004",
+      "description": "Data-governance: warn when an automation touches production/customer systems.",
+      "applies_to": ["cursor", "n8n"],
+      "conditions": [
+        {"field": "any_step", "op": "regex", "value": "prod(uction)?[-_/. ]?db|customer[-_ ]?data|/etc/|/var/data|secrets?|credentials?"}
+      ],
+      "action": "WARN",
+      "message": "Action references a production or sensitive-data resource governed by organizational policy.",
+      "suggested_fix": "Confirm this operation is intended for a production/sensitive resource and has the required approval."
+    },
+    {
+      "id": "POL-005",
+      "description": "Egress control: warn on outbound calls/emails to non-allowlisted external domains (automation agents).",
+      "applies_to": ["n8n"],
+      "conditions": [
+        {"field": "any_step", "op": "regex", "value": "https?://(?!(?:[a-z0-9-]+\\.)*(?:example\\.com|company\\.internal|localhost))"}
+      ],
+      "action": "WARN",
+      "message": "Workflow makes an outbound request to a domain outside the organizational allowlist.",
+      "suggested_fix": "Add the destination domain to the egress allowlist, or route the request through an approved gateway."
+    }
+  ]
+}

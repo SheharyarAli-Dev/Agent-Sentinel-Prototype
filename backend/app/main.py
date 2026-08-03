@@ -22,6 +22,7 @@ from app.database import Base, engine
 from app.api.evaluate import router as evaluate_router
 from app.api.decide import router as decide_router
 from app.api.n8n_webhook import router as n8n_router
+from app.api.governance import router as governance_router
 from app.websocket.manager import manager
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -45,8 +46,9 @@ app = FastAPI(
     description=(
         "Middleware that intercepts AI agent actions, evaluates their risk, "
         "and returns ALLOW / WARN / BLOCK decisions with suggested fixes. "
-        "FYP Prototype — three modules (ATTVE, Intent Verification, Planning Verification) "
-        "across three use cases (transaction, cursor, n8n)."
+        "FYP Prototype — modules: Policy Engine (M1), ATTVE (M2), Intent Verification (M6), "
+        "Planning Verification (M7), Decision Governance & Incident Response (M4), "
+        "Explainable Safety Reasoning (M11) — across three use cases (transaction, cursor, n8n)."
     ),
     version="0.1.0",
     docs_url="/docs",
@@ -66,6 +68,7 @@ app.add_middleware(
 app.include_router(evaluate_router)
 app.include_router(decide_router)
 app.include_router(n8n_router)
+app.include_router(governance_router)
 
 
 # ── WebSocket endpoint ─────────────────────────────────────────────────────────

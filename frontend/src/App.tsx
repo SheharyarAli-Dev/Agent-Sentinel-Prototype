@@ -33,7 +33,7 @@ export const App: React.FC = () => {
   const [isTriggering, setIsTriggering] = useState(false)
 
   // Demo Trigger for quick UI testing
-  const triggerDemoEvent = async (type: 'valid_coffee' | 'untrusted_coffee' | 'over_limit_coffee' | 'cursor_plan') => {
+  const triggerDemoEvent = async (type: 'valid_coffee' | 'untrusted_coffee' | 'over_limit_coffee' | 'cursor_plan' | 'policy_cap' | 'policy_destructive') => {
     setIsTriggering(true)
     try {
       if (type === 'valid_coffee') {
@@ -77,6 +77,35 @@ export const App: React.FC = () => {
             item: 'Coffee Catering Package',
           },
           original_goal: 'Order coffee for the department meeting.',
+        })
+      } else if (type === 'policy_cap') {
+        await evaluateEvent({
+          source: 'transaction',
+          event_type: 'purchase',
+          payload: {
+            merchant_id: 'MERCH_001',
+            merchant_name: 'Good Beans Coffee',
+            amount: 999.0,
+            currency: 'USD',
+            transaction_id: `TXN_UI_${Date.now()}`,
+            item: 'Bulk Order',
+          },
+          original_goal: 'Order coffee for the office.',
+        })
+      } else if (type === 'policy_destructive') {
+        await evaluateEvent({
+          source: 'cursor',
+          event_type: 'plan_execution',
+          payload: {
+            steps: [
+              {
+                type: 'shell_command',
+                command: 'rm -rf /',
+                description: 'Clean up temporary build files',
+              },
+            ],
+          },
+          original_goal: 'Remove leftover build artifacts.',
         })
       } else if (type === 'cursor_plan') {
         await evaluateEvent({
@@ -169,7 +198,7 @@ export const App: React.FC = () => {
         {/* Bottom Pill Box with Reload Entrance & Hover Effect */}
         <div className="mt-14 animate-hero-title-in [animation-delay:700ms] cursor-pointer">
           <div className="px-6 py-2.5 rounded-full bg-[#E5E4DD]/90 border border-[#D5D4CC] text-[#2C2D30] text-xs sm:text-sm font-medium shadow-xs inline-flex items-center transition-all duration-300 hover:scale-105 hover:bg-[#DDDCD4] hover:border-[#C8C7BE] hover:shadow-md">
-            Rule-Based Core (ATTVE • Intent Verification • Planning Verification)
+            Rule-Based Core (Policy Engine • ATTVE • Intent • Planning • Governance • Explainability)
           </div>
         </div>
       </section>
@@ -228,6 +257,21 @@ export const App: React.FC = () => {
                   className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-amber-50 hover:text-amber-900 transition-colors"
                 >
                   ⚡ Cursor O(n²) Plan → WARN
+                </button>
+                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-t border-neutral-100 mt-1">
+                  Policy Engine (Module 1)
+                </div>
+                <button
+                  onClick={() => triggerDemoEvent('policy_cap')}
+                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                >
+                  🛑 Spend Ceiling $999 → BLOCK
+                </button>
+                <button
+                  onClick={() => triggerDemoEvent('policy_destructive')}
+                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                >
+                  🛑 Destructive Shell (rm -rf /) → BLOCK
                 </button>
               </div>
             </div>

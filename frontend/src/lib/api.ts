@@ -35,6 +35,7 @@ export interface DecisionRecord {
   suggested_fix: string
   module: string
   risk_score: number
+  explanation: string
   timestamp: string
   human_decision: HumanDecision | null
   human_timestamp: string | null

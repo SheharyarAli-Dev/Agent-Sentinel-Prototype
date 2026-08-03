@@ -62,6 +62,8 @@ class DecisionORM(Base):
     module: Mapped[str] = mapped_column(String(32), nullable=False)
     # Normalised risk score 0.0 (benign) → 1.0 (critical).
     risk_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # Module 11 — plain-language explanation of the decision.
+    explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
     timestamp: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -101,6 +103,10 @@ class DecisionCreate(BaseModel):
     risk_score: float = Field(
         ..., ge=0.0, le=1.0, description="Normalised risk score 0-1."
     )
+    explanation: str = Field(
+        default="",
+        description="Module 11 — plain-language justification of the decision.",
+    )
 
     @field_validator("suggested_fix")
     @classmethod
@@ -123,6 +129,7 @@ class DecisionResponse(BaseModel):
     suggested_fix: str
     module: str
     risk_score: float
+    explanation: str = ""
     timestamp: datetime
     human_decision: HumanDecision | None = None
     human_timestamp: datetime | None = None

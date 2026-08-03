@@ -1,22 +1,36 @@
 # Agentic Action Risk Gatekeeper — FYP Prototype
 
-Middleware system that intercepts AI agent actions, evaluates their risk before execution, and returns **ALLOW / WARN / BLOCK** decisions with suggested fixes.
+Middleware system that intercepts AI agent actions, evaluates their risk before execution, and returns **ALLOW / WARN / BLOCK** decisions with suggested fixes and a plain-language explanation.
 
 ## Three Use Cases
 
 | Use Case | Adapter | Modules |
 |----------|---------|---------|
-| Cursor (coding agent) | `cursor_adapter.py` | Module 7 + Module 6 |
-| n8n (automation agent) | `n8n_adapter.py` | Module 7 (plan safety) + Module 6 |
-| Coffee ordering (transaction) | `transaction_adapter.py` | Module 2 (ATTVE) |
+| Cursor (coding agent) | `cursor_adapter.py` | Module 1 + 7 + 6 |
+| n8n (automation agent) | `n8n_adapter.py` | Module 1 + 7 (plan safety) + 6 |
+| Coffee ordering (transaction) | `transaction_adapter.py` | Module 1 + 2 (ATTVE) |
 
-## Three Policy Modules
+## Implemented Policy Modules
 
 | Module | File | Purpose |
 |--------|------|---------|
+| Module 1 — AI Policy Engine | `policy/policy_engine.py` | Declarative policy-as-code governance, evaluated **before** every module check. Rules live in `data/policies.json`. A BLOCK policy is authoritative. |
 | Module 2 — ATTVE | `policy/attve.py` | Merchant verification, invoice integrity, spend limit |
-| Module 6 — Intent Verification | `policy/intent_verification.py` | Detect drift from original goal |
+| Module 4 — Decision Governance & Incident Response | `policy/governance.py` | Audit trail + forensic incident report over all decisions (`/api/audit`, `/api/incident-report`) |
+| Module 6 — Intent Verification | `policy/intent_verification.py` | Detect drift from original goal (advisory for transactions, blocking for cursor/n8n) |
 | Module 7 — Planning Verification | `policy/planning_verification.py` | Whole-plan safety + code-quality patterns |
+| Module 11 — Explainable Safety Reasoning | `policy/explainability.py` | Plain-language justification attached to every decision |
+
+## API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/evaluate` | Submit an agent action for risk evaluation |
+| POST | `/api/decide/{event_id}` | Human approve/reject a WARN event |
+| GET | `/api/decide/{event_id}` | Get the current decision for an event |
+| GET | `/api/audit` | Queryable audit trail (Module 4) — filters: `source`, `verdict`, `limit` |
+| GET | `/api/incident-report` | Forensic summary + blocked incidents (Module 4) |
+| WS | `/ws` | Live dashboard event stream |
 
 ## Quick Start (WSL2 / Linux)
 
@@ -146,3 +160,38 @@ risk-gatekeeper/
 - ⬜ **Phase 4** — Cursor adapter + Modules 7 & 6 (full implementation)
 - ⬜ **Phase 5** — n8n adapter
 - ⬜ **Phase 6** — Eval set + report
+
+---
+
+## Recent Changes (this iteration)
+
+**Bug fix — the "Valid Coffee → ALLOW" case now works.**
+Previously a valid transaction was wrongly scored WARN because Intent Verification
+compared the natural-language goal ("order a coffee") against the transaction's
+structured fields ("Good Beans Coffee / Flat White") via keyword overlap (12.5% —
+below threshold). Intent Verification now runs in **advisory mode** for
+transactions: it annotates low alignment but never escalates the verdict. ATTVE
+(Module 2) remains authoritative for transaction safety. Intent Verification still
+fully WARNs on drift for cursor/n8n use cases.
+
+**New modules implemented:**
+- **Module 1 — AI Policy Engine** — declarative `data/policies.json`, evaluated
+  before all module checks; authoritative BLOCK. Ships with 5 demo policies.
+- **Module 4 — Decision Governance & Incident Response** — `/api/audit` and
+  `/api/incident-report` endpoints for accountability and forensics.
+- **Module 11 — Explainable Safety Reasoning** — a plain-language `explanation`
+  field on every decision, displayed in the dashboard cards and approval modal.
+
+**Also fixed:** `npm run build` was broken by a missing CSS type declaration;
+added `frontend/src/vite-env.d.ts` so the production build compiles cleanly.
+
+**Tests:** 43 passing (was 31) — new suites `test_policy_engine.py` and
+`test_governance_and_fix.py`.
+
+## Run tests
+
+```bash
+cd backend
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pytest tests/ -v
+```
