@@ -64,6 +64,18 @@ export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview 
 
         <div className="flex items-center gap-3">
           <span className="text-xs text-neutral-400 font-mono">{formattedTime}</span>
+          {typeof decision.latency_ms === 'number' && decision.latency_ms > 0 && (
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md border ${
+                decision.latency_ms < 40
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                  : 'text-amber-700 bg-amber-50 border-amber-200'
+              }`}
+              title="Evaluation latency (spec target: < 40ms)"
+            >
+              ⚡ {decision.latency_ms.toFixed(1)}ms
+            </span>
+          )}
           <span
             className={`px-3 py-1 text-xs font-semibold rounded-full uppercase tracking-wider ${verdictBadgeClass}`}
           >

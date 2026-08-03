@@ -53,6 +53,7 @@ def get_audit_trail(
                 "module": decision.module,
                 "reasons": json.loads(decision.reasons),
                 "explanation": decision.explanation,
+                "latency_ms": decision.latency_ms,
                 "human_decision": decision.human_decision,
                 "timestamp": decision.timestamp.isoformat(),
             }
@@ -79,10 +80,13 @@ def build_incident_report(db: Session) -> dict[str, Any]:
     module_hits: dict[str, int] = {}
     incidents: list[dict[str, Any]] = []
     pending_reviews = 0
+    latencies: list[float] = []
 
     for event, decision in pairs:
         by_verdict[decision.verdict] = by_verdict.get(decision.verdict, 0) + 1
         by_source[event.source] = by_source.get(event.source, 0) + 1
+        if decision.latency_ms:
+            latencies.append(decision.latency_ms)
 
         if decision.verdict in ("WARN", "BLOCK"):
             for m in (decision.module or "").split(","):
@@ -113,6 +117,9 @@ def build_incident_report(db: Session) -> dict[str, Any]:
         "verdict_breakdown": by_verdict,
         "source_breakdown": by_source,
         "pending_human_reviews": pending_reviews,
+        "avg_latency_ms": round(sum(latencies) / len(latencies), 2) if latencies else 0.0,
+        "max_latency_ms": round(max(latencies), 2) if latencies else 0.0,
+        "latency_target_ms": 40,
         "top_triggering_modules": [
             {"module": m, "count": c} for m, c in top_modules
         ],

@@ -61,7 +61,9 @@ async def evaluate(event_in: EventCreate, db: Session = Depends(get_db)) -> Eval
         event_in.event_type,
     )
 
-    # ── 2. Run policy engine ───────────────────────────────────────────────────
+    # ── 2. Run policy engine (timed — spec KPI Δt < 40ms) ──────────────────────
+    import time as _time
+    _t0 = _time.perf_counter()
     try:
         decision_data = evaluate_event(event_in)
     except Exception as exc:
@@ -70,6 +72,7 @@ async def evaluate(event_in: EventCreate, db: Session = Depends(get_db)) -> Eval
             status_code=500,
             detail=f"Policy engine error: {exc}",
         ) from exc
+    _latency_ms = round((_time.perf_counter() - _t0) * 1000.0, 2)
 
     # ── 3. Persist decision ────────────────────────────────────────────────────
     decision_orm = DecisionORM(
@@ -80,6 +83,7 @@ async def evaluate(event_in: EventCreate, db: Session = Depends(get_db)) -> Eval
         module=decision_data.module,
         risk_score=decision_data.risk_score,
         explanation=getattr(decision_data, "explanation", ""),
+        latency_ms=_latency_ms,
         timestamp=datetime.now(timezone.utc),
         human_decision=None,
         human_timestamp=None,

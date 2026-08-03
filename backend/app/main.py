@@ -47,8 +47,9 @@ app = FastAPI(
         "Middleware that intercepts AI agent actions, evaluates their risk, "
         "and returns ALLOW / WARN / BLOCK decisions with suggested fixes. "
         "FYP Prototype — modules: Policy Engine (M1), ATTVE (M2), Intent Verification (M6), "
-        "Planning Verification (M7), Decision Governance & Incident Response (M4), "
-        "Explainable Safety Reasoning (M11) — across three use cases (transaction, cursor, n8n)."
+        "Planning Verification (M7), Context Integrity / Injection Defense, Sequential Behaviour "
+        "Analysis, Decision Governance & Incident Response (M4), Explainable Safety Reasoning (M11) "
+        "— across three use cases (transaction, cursor, n8n)."
     ),
     version="0.1.0",
     docs_url="/docs",

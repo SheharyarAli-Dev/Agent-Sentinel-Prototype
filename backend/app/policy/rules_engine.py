@@ -70,9 +70,11 @@ def evaluate_event(event: EventCreate) -> DecisionCreate:
 def _run_transaction_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.attve import evaluate_transaction
     from app.policy.intent_verification import evaluate_intent
+    from app.policy.sequential_behaviour import evaluate_sequence
 
     results: list[DecisionCreate] = []
     results.append(evaluate_transaction(event))
+    results.append(evaluate_sequence(event))   # velocity / repeated-spend detection
 
     # Module 6 is optional/light for transactions — only run if original_goal set,
     # and in ADVISORY mode (informational, never escalates the verdict). ATTVE is
@@ -87,9 +89,13 @@ def _run_transaction_modules(event: EventCreate) -> list[DecisionCreate]:
 def _run_cursor_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.planning_verification import evaluate_plan
     from app.policy.intent_verification import evaluate_intent
+    from app.policy.context_integrity import evaluate_context_integrity
+    from app.policy.sequential_behaviour import evaluate_sequence
 
     results: list[DecisionCreate] = []
     results.append(evaluate_plan(event))
+    results.append(evaluate_context_integrity(event))   # prompt-injection defense
+    results.append(evaluate_sequence(event))            # trajectory analysis
 
     if event.original_goal:
         results.append(evaluate_intent(event))
@@ -100,11 +106,15 @@ def _run_cursor_modules(event: EventCreate) -> list[DecisionCreate]:
 def _run_n8n_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.planning_verification import evaluate_plan
     from app.policy.intent_verification import evaluate_intent
+    from app.policy.context_integrity import evaluate_context_integrity
+    from app.policy.sequential_behaviour import evaluate_sequence
 
     results: list[DecisionCreate] = []
     # For n8n, planning_verification skips the code-quality sub-module
     # (handled internally by evaluate_plan based on event.source).
     results.append(evaluate_plan(event))
+    results.append(evaluate_context_integrity(event))   # prompt-injection defense
+    results.append(evaluate_sequence(event))            # trajectory analysis
 
     if event.original_goal:
         results.append(evaluate_intent(event))
@@ -153,8 +163,15 @@ def _aggregate(
     fixes = [r.suggested_fix for r in results if r.suggested_fix.strip()]
     combined_fix = "  |  ".join(fixes)
 
-    # Average risk scores.
+    # Average risk scores, but ensure the final score reflects the severity of
+    # the deciding module(s): a BLOCK should not show a low averaged risk just
+    # because other modules returned 0. Final = max(avg, worst-decider risk).
     avg_score = sum(r.risk_score for r in results) / len(results)
+    decider_risk = max(
+        (r.risk_score for r in results if r.verdict == final_verdict),
+        default=0.0,
+    )
+    final_risk = round(max(avg_score, decider_risk), 4)
 
     # Modules that contributed (skip clean pass-through policy_engine ALLOW noise).
     modules = ", ".join(
@@ -169,7 +186,7 @@ def _aggregate(
         reasons=all_reasons,
         suggested_fix=combined_fix,
         module=modules,
-        risk_score=round(avg_score, 4),
+        risk_score=final_risk,
     )
 
     # ── Module 11 — Explainable Safety Reasoning ───────────────────────────────

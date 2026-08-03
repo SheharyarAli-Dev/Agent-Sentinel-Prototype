@@ -1,0 +1,12 @@
+{
+  "_comment": "Trusted-source allowlist for Module — Context Integrity Verification. Context (retrieved documents, tool outputs, web content) whose declared 'source' is not on this allowlist is treated as lower-trust. Freshness: context older than max_age_days is flagged as potentially stale/poisoned.",
+  "max_age_days": 365,
+  "trusted_sources": [
+    "internal-kb",
+    "company.internal",
+    "docs.example.com",
+    "official-policy-store",
+    "verified-vendor-api",
+    "localhost"
+  ]
+}

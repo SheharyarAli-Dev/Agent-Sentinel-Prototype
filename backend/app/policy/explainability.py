@@ -35,6 +35,8 @@ _MODULE_LABEL = {
     "attve": "Transaction Trust / ATTVE (Module 2)",
     "intent_verification": "Intent Verification (Module 6)",
     "planning_verification": "Planning Verification (Module 7)",
+    "context_integrity": "Context Integrity / Injection Defense",
+    "sequential_behaviour": "Sequential Behaviour Analysis",
     "code_quality": "Code-Quality Patterns (Module 7)",
     "rules_engine": "Rules Engine",
 }

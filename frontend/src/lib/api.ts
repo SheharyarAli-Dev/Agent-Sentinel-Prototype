@@ -36,6 +36,7 @@ export interface DecisionRecord {
   module: string
   risk_score: number
   explanation: string
+  latency_ms: number
   timestamp: string
   human_decision: HumanDecision | null
   human_timestamp: string | null

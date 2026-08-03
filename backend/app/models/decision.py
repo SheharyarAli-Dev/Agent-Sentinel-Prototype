@@ -64,6 +64,8 @@ class DecisionORM(Base):
     risk_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     # Module 11 — plain-language explanation of the decision.
     explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Evaluation latency in milliseconds (spec KPI: Δt < 40ms).
+    latency_ms: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -130,6 +132,7 @@ class DecisionResponse(BaseModel):
     module: str
     risk_score: float
     explanation: str = ""
+    latency_ms: float = 0.0
     timestamp: datetime
     human_decision: HumanDecision | None = None
     human_timestamp: datetime | None = None

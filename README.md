@@ -19,6 +19,8 @@ Middleware system that intercepts AI agent actions, evaluates their risk before 
 | Module 4 — Decision Governance & Incident Response | `policy/governance.py` | Audit trail + forensic incident report over all decisions (`/api/audit`, `/api/incident-report`) |
 | Module 6 — Intent Verification | `policy/intent_verification.py` | Detect drift from original goal (advisory for transactions, blocking for cursor/n8n) |
 | Module 7 — Planning Verification | `policy/planning_verification.py` | Whole-plan safety + code-quality patterns |
+| Context Integrity Verification | `policy/context_integrity.py` | **Prompt-injection defense (OWASP LLM01)** — detects injection/exfiltration patterns, hidden unicode, untrusted sources, and stale context in data the agent ingests |
+| Sequential Behaviour Analysis | `policy/sequential_behaviour.py` | **Trajectory monitoring** — detects multi-step attack chains (read-sensitive → exfiltrate), risk escalation, and velocity anomalies across a session |
 | Module 11 — Explainable Safety Reasoning | `policy/explainability.py` | Plain-language justification attached to every decision |
 
 ## API Endpoints
@@ -195,3 +197,23 @@ cd backend
 source venv/bin/activate   # Windows: venv\Scripts\activate
 pytest tests/ -v
 ```
+
+## Latest additions (security modules + latency KPI)
+
+- **Context Integrity Verification** — defends against 2026's #1 agent threat,
+  prompt injection (OWASP LLM01). Scans ingested context (documents, tool
+  outputs, RAG results) for injection/exfiltration patterns, hidden unicode,
+  untrusted sources (`data/trusted_sources.json`), and stale content. High-
+  confidence injection → BLOCK. Honest framing: injection is unsolved in 2026;
+  this raises attacker cost and catches common cases as one layer of defense-in-depth.
+- **Sequential Behaviour Analysis** — trajectory monitoring with per-session
+  state. Catches multi-step kill-chains (e.g. read customer DB → send externally)
+  that look benign step-by-step, plus risk escalation and velocity bursts.
+- **Latency KPI** — every decision is now timed; `/api/incident-report` exposes
+  `avg_latency_ms` / `max_latency_ms` against the 40ms spec target, and each
+  dashboard card shows its evaluation latency.
+
+New demo scenarios in the dashboard dropdown: **Prompt Injection in Document → BLOCK**
+and **Exfiltration Chain (2 steps) → BLOCK**.
+
+Tests: 53 passing. New suite: `test_context_and_sequence.py`.
