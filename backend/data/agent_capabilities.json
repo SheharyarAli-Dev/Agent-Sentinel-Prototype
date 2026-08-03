@@ -1,0 +1,17 @@
+{
+  "_comment": "Least-privilege / least-agency capability grants per agent source. An action whose capability is not granted to its source is a privilege violation (BLOCK). 'max_impact_tier' caps least-AGENCY: even a granted capability cannot exceed this reversibility tier without human approval (0=read,1=reversible,2=disruptive,3=irreversible).",
+  "agents": {
+    "cursor": {
+      "allowed_capabilities": ["read_file", "write_file", "list_directory", "search_web", "run_tests", "rag_retrieval", "plan_execution"],
+      "max_impact_tier": 2
+    },
+    "n8n": {
+      "allowed_capabilities": ["http_request", "read_record", "write_record", "send_notification", "webhook_action", "transform_data"],
+      "max_impact_tier": 2
+    },
+    "transaction": {
+      "allowed_capabilities": ["purchase", "refund", "query_balance"],
+      "max_impact_tier": 3
+    }
+  }
+}

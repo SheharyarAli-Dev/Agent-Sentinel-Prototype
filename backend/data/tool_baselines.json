@@ -1,0 +1,25 @@
+{
+  "_comment": "Approved tool baselines for MCP Tool Poisoning Defense. Each tool's approved description is fingerprinted; if a tool later presents a DIFFERENT description than the approved baseline, that is a 'rug pull' (silently modified after approval) and is blocked. 'server' must be on the trusted list. Tools not listed here are 'unknown' and warned.",
+  "tools": [
+    {
+      "name": "web_search",
+      "server": "internal-kb",
+      "approved_description": "Search the web for a query string and return text results."
+    },
+    {
+      "name": "read_file",
+      "server": "localhost",
+      "approved_description": "Read the contents of a file at a given path within the workspace."
+    },
+    {
+      "name": "calculator",
+      "server": "internal-kb",
+      "approved_description": "Evaluate a basic arithmetic expression and return the numeric result."
+    },
+    {
+      "name": "send_email",
+      "server": "verified-vendor-api",
+      "approved_description": "Send an email to a specified recipient with a subject and body."
+    }
+  ]
+}

@@ -36,6 +36,9 @@ def evaluate_event(event: EventCreate) -> DecisionCreate:
     This is the single entry point called by the /evaluate endpoint.
     """
     from app.policy.policy_engine import evaluate_policies
+    from app.policy.least_privilege import evaluate_least_privilege
+    from app.policy.memory_integrity import evaluate_memory_integrity
+    from app.policy.multi_agent import evaluate_multi_agent
 
     results: list[DecisionCreate] = []
 
@@ -43,6 +46,12 @@ def evaluate_event(event: EventCreate) -> DecisionCreate:
     # Governance-before-execution: organizational policy is checked before any
     # statistical/heuristic module. A BLOCK here is authoritative.
     results.append(evaluate_policies(event))
+
+    # ── Cross-cutting guards that apply to EVERY source ─────────────────────────
+    # (each returns a clean ALLOW quickly when not applicable to the event)
+    results.append(evaluate_least_privilege(event))   # least-privilege / least-agency
+    results.append(evaluate_memory_integrity(event))  # memory-poisoning defense
+    results.append(evaluate_multi_agent(event))       # multi-agent safety
 
     if event.source == "transaction":
         results.extend(_run_transaction_modules(event))
@@ -91,10 +100,12 @@ def _run_cursor_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.intent_verification import evaluate_intent
     from app.policy.context_integrity import evaluate_context_integrity
     from app.policy.sequential_behaviour import evaluate_sequence
+    from app.policy.tool_integrity import evaluate_tool_integrity
 
     results: list[DecisionCreate] = []
     results.append(evaluate_plan(event))
     results.append(evaluate_context_integrity(event))   # prompt-injection defense
+    results.append(evaluate_tool_integrity(event))      # MCP tool-poisoning defense
     results.append(evaluate_sequence(event))            # trajectory analysis
 
     if event.original_goal:
@@ -108,12 +119,14 @@ def _run_n8n_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.intent_verification import evaluate_intent
     from app.policy.context_integrity import evaluate_context_integrity
     from app.policy.sequential_behaviour import evaluate_sequence
+    from app.policy.tool_integrity import evaluate_tool_integrity
 
     results: list[DecisionCreate] = []
     # For n8n, planning_verification skips the code-quality sub-module
     # (handled internally by evaluate_plan based on event.source).
     results.append(evaluate_plan(event))
     results.append(evaluate_context_integrity(event))   # prompt-injection defense
+    results.append(evaluate_tool_integrity(event))      # MCP tool-poisoning defense
     results.append(evaluate_sequence(event))            # trajectory analysis
 
     if event.original_goal:

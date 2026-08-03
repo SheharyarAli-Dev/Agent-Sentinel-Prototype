@@ -21,6 +21,10 @@ Middleware system that intercepts AI agent actions, evaluates their risk before 
 | Module 7 — Planning Verification | `policy/planning_verification.py` | Whole-plan safety + code-quality patterns |
 | Context Integrity Verification | `policy/context_integrity.py` | **Prompt-injection defense (OWASP LLM01)** — detects injection/exfiltration patterns, hidden unicode, untrusted sources, and stale context in data the agent ingests |
 | Sequential Behaviour Analysis | `policy/sequential_behaviour.py` | **Trajectory monitoring** — detects multi-step attack chains (read-sensitive → exfiltrate), risk escalation, and velocity anomalies across a session |
+| Tool Poisoning Defense | `policy/tool_integrity.py` | **MCP tool-poisoning defense** — injection scan of tool descriptions, rug-pull (baseline-hash) detection, trusted-server + unknown-tool checks |
+| Least-Privilege / Least-Agency | `policy/least_privilege.py` | Enforces per-agent capability grants (`data/agent_capabilities.json`); denies ungranted capabilities and caps high-impact actions |
+| Memory Poisoning Defense | `policy/memory_integrity.py` | Validates long-term memory writes at ingestion — protects core memory, scans for injection, requires provenance |
+| Multi-Agent Safety | `policy/multi_agent.py` | Cross-agent privilege escalation, unsafe delegation, goal conflict, shared-context poisoning |
 | Module 11 — Explainable Safety Reasoning | `policy/explainability.py` | Plain-language justification attached to every decision |
 
 ## API Endpoints
@@ -217,3 +221,30 @@ New demo scenarios in the dashboard dropdown: **Prompt Injection in Document →
 and **Exfiltration Chain (2 steps) → BLOCK**.
 
 Tests: 53 passing. New suite: `test_context_and_sequence.py`.
+
+## Latest additions (4 advanced security modules)
+
+Four more modules were added, completing a defense-in-depth security story:
+
+- **Tool Poisoning Defense** (`tool_integrity.py`) — MCP's #1 emerging threat.
+  Scans tool descriptions for hidden exfiltration instructions, and detects
+  "rug pulls" by fingerprinting each tool's approved description
+  (`data/tool_baselines.json`) and blocking any silent change after approval.
+- **Least-Privilege / Least-Agency** (`least_privilege.py`) — enforces per-agent
+  capability grants (`data/agent_capabilities.json`); an agent using a capability
+  outside its role is blocked (confused-deputy defense). Only enforced when a
+  capability is explicitly declared, so freeform actions are never mis-blocked.
+- **Memory Poisoning Defense** (`memory_integrity.py`) — validates long-term
+  memory writes: external input may not modify core memory, content is scanned
+  for injection, and provenance metadata is required for auditability.
+- **Multi-Agent Safety** (`multi_agent.py`) — detects cross-agent privilege
+  escalation, unsafe delegated tasks, goal conflicts, and shared-context poisoning.
+
+New dashboard demo scenarios: Poisoned MCP Tool, Privilege Violation, Memory
+Poisoning, and Cross-Agent Escalation — all → BLOCK.
+
+The agent's **input** (Context Integrity), **tools** (Tool Poisoning), **memory**
+(Memory Poisoning), **privileges** (Least-Privilege), **trajectory** (Sequential),
+and **collaborations** (Multi-Agent) are now all defended, then governed and explained.
+
+Tests: 70 passing. New suite: `test_advanced_security_modules.py`.

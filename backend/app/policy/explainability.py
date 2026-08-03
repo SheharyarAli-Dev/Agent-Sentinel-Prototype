@@ -37,6 +37,10 @@ _MODULE_LABEL = {
     "planning_verification": "Planning Verification (Module 7)",
     "context_integrity": "Context Integrity / Injection Defense",
     "sequential_behaviour": "Sequential Behaviour Analysis",
+    "tool_integrity": "Tool Poisoning Defense",
+    "least_privilege": "Least-Privilege / Least-Agency",
+    "memory_integrity": "Memory Poisoning Defense",
+    "multi_agent": "Multi-Agent Safety",
     "code_quality": "Code-Quality Patterns (Module 7)",
     "rules_engine": "Rules Engine",
 }
