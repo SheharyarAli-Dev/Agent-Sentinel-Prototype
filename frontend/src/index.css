@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-allow: 34 197 94;   /* green-500 */
+    --color-warn: 234 179 8;    /* yellow-500 */
+    --color-block: 239 68 68;   /* red-500 */
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-[#F9F8F3] text-[#0F0F0F] font-sans antialiased min-h-screen overflow-x-hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-[#FAF9F4];
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full hover:bg-neutral-400 transition-colors;
+  }
+}
+
+@layer components {
+  /* Lexend font utility for second page / scrolled content */
+  .font-lexend {
+    font-family: 'Lexend', sans-serif;
+  }
+
+  /* Badge colors */
+  .badge-allow {
+    @apply bg-emerald-100 text-emerald-800 border border-emerald-300/80;
+  }
+  .badge-warn {
+    @apply bg-amber-100 text-amber-800 border border-amber-300/80;
+  }
+  .badge-block {
+    @apply bg-rose-100 text-rose-800 border border-rose-300/80;
+  }
+
+  /* Light Theme Glassmorphism card */
+  .theme-card {
+    @apply bg-white/80 backdrop-blur-md border border-neutral-200/90 rounded-2xl shadow-sm transition-all duration-300;
+  }
+
+  .theme-card-hover {
+    @apply hover:bg-neutral-50/90 hover:border-neutral-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300;
+  }
+
+  /* Modal backdrop */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+}
+
+/* Background canvas layer */
+#interactive-bg-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+}

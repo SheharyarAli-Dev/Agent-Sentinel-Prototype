@@ -1,0 +1,22 @@
+{
+  "name": "risk-gatekeeper-node",
+  "version": "0.1.0",
+  "description": "Custom n8n node — Risk Gatekeeper middleware integration. Calls the Risk Gatekeeper backend before executing any risky workflow action.",
+  "main": "RiskGatekeeper.node.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [],
+    "nodes": [
+      "dist/RiskGatekeeper.node.js"
+    ]
+  },
+  "keywords": ["n8n-community-node-package"],
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "n8n-workflow": "^1.0.0"
+  }
+}

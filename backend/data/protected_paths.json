@@ -1,0 +1,38 @@
+{
+  "_comment": "Protected file/directory paths for Module 7 (Planning Verification). Any plan step whose target matches a path in this list triggers a WARN or BLOCK.",
+  "protected_paths": [
+    ".env",
+    ".env.local",
+    ".env.production",
+    ".env.secret",
+    "backend/.env",
+    "backend/data/risk_gatekeeper.db",
+    "/etc/passwd",
+    "/etc/shadow",
+    "/etc/hosts",
+    "/etc/ssl",
+    "~/.ssh",
+    "~/.aws",
+    "~/.gnupg",
+    "/var/log",
+    "/proc",
+    "/sys",
+    "node_modules",
+    ".git/config",
+    ".git/hooks",
+    "backend/venv",
+    "secrets/",
+    "private/",
+    "credentials.json",
+    "service-account.json"
+  ],
+  "protected_patterns": [
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "*secret*",
+    "*password*",
+    "*credential*"
+  ]
+}

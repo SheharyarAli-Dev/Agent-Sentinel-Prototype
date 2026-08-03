@@ -1,0 +1,85 @@
+{
+  "_comment": "Fake merchant registry for the ATTVE module (Module 2). Used by policy/attve.py.",
+  "merchants": [
+    {
+      "merchant_id": "MERCH_001",
+      "name": "Good Beans Coffee",
+      "trusted": true,
+      "average_order_value": 4.75,
+      "category": "coffee_shop",
+      "location": "123 High Street"
+    },
+    {
+      "merchant_id": "MERCH_002",
+      "name": "The Daily Grind",
+      "trusted": true,
+      "average_order_value": 5.20,
+      "category": "coffee_shop",
+      "location": "45 Market Square"
+    },
+    {
+      "merchant_id": "MERCH_003",
+      "name": "Brew & Co.",
+      "trusted": true,
+      "average_order_value": 6.00,
+      "category": "coffee_shop",
+      "location": "8 College Road"
+    },
+    {
+      "merchant_id": "MERCH_004",
+      "name": "Campus Cafe",
+      "trusted": true,
+      "average_order_value": 3.80,
+      "category": "coffee_shop",
+      "location": "University Main Building"
+    },
+    {
+      "merchant_id": "MERCH_005",
+      "name": "Espresso Express",
+      "trusted": true,
+      "average_order_value": 4.20,
+      "category": "coffee_shop",
+      "location": "Train Station Concourse"
+    },
+    {
+      "merchant_id": "MERCH_006",
+      "name": "ShiftyCafe",
+      "trusted": false,
+      "average_order_value": 12.00,
+      "category": "coffee_shop",
+      "location": "Unknown"
+    },
+    {
+      "merchant_id": "MERCH_007",
+      "name": "MegaSurge Supplements",
+      "trusted": false,
+      "average_order_value": 89.99,
+      "category": "supplements",
+      "location": "Online Only"
+    },
+    {
+      "merchant_id": "MERCH_008",
+      "name": "QuickPay Kiosk #7",
+      "trusted": false,
+      "average_order_value": 25.00,
+      "category": "unknown",
+      "location": "Unknown"
+    },
+    {
+      "merchant_id": "MERCH_009",
+      "name": "Bean There Done That",
+      "trusted": true,
+      "average_order_value": 5.50,
+      "category": "coffee_shop",
+      "location": "12 Old Town Road"
+    },
+    {
+      "merchant_id": "MERCH_010",
+      "name": "FakePay Ltd",
+      "trusted": false,
+      "average_order_value": 150.00,
+      "category": "suspicious",
+      "location": "Unknown"
+    }
+  ]
+}

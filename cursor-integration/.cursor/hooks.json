@@ -1,0 +1,24 @@
+{
+  "beforeShellExecution": {
+    "command": "curl",
+    "args": [
+      "-s",
+      "-X", "POST",
+      "http://localhost:8000/api/evaluate",
+      "-H", "Content-Type: application/json",
+      "-d", "{\"source\": \"cursor\", \"event_type\": \"shell_command\", \"payload\": {\"hook_type\": \"beforeShellExecution\", \"command\": \"${command}\", \"args\": ${args}}, \"original_goal\": \"${goal}\"}"
+    ],
+    "_comment": "Fires before any shell command executes in Cursor. Posts to the Risk Gatekeeper backend. If the response verdict is BLOCK, Cursor should abort execution. Phase 4 will refine this hook."
+  },
+  "beforeMCPExecution": {
+    "command": "curl",
+    "args": [
+      "-s",
+      "-X", "POST",
+      "http://localhost:8000/api/evaluate",
+      "-H", "Content-Type: application/json",
+      "-d", "{\"source\": \"cursor\", \"event_type\": \"mcp_execution\", \"payload\": {\"hook_type\": \"beforeMCPExecution\", \"method\": \"${method}\", \"params\": ${params}}, \"original_goal\": \"${goal}\"}"
+    ],
+    "_comment": "Fires before any MCP tool call in Cursor. Phase 4 will add plan step extraction."
+  }
+}
