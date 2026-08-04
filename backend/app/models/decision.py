@@ -59,7 +59,7 @@ class DecisionORM(Base):
     # suggested_fix is a single human-readable recommendation; empty string for ALLOW.
     suggested_fix: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Which policy module produced this verdict.
-    module: Mapped[str] = mapped_column(String(32), nullable=False)
+    module: Mapped[str] = mapped_column(String(255), nullable=False)
     # Normalised risk score 0.0 (benign) → 1.0 (critical).
     risk_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     # Module 11 — plain-language explanation of the decision.
