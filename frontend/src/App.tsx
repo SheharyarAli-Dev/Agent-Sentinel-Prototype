@@ -353,6 +353,75 @@ export const App: React.FC = () => {
                 {redTeam.gaps.length > 0 && ` · ${redTeam.gaps.length} gap(s)`}
               </span>
             )}
+
+            {redTeam && (
+              <div className="mt-4 max-w-3xl rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden animate-slide-up">
+                <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                    Adversarial Test Results ({redTeam.total_attacks} attacks)
+                  </span>
+                  <button
+                    onClick={() => setRedTeam(null)}
+                    className="text-xs text-neutral-400 hover:text-neutral-700"
+                  >
+                    ✕ close
+                  </button>
+                </div>
+                <div className="max-h-[52vh] overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-neutral-50 text-neutral-500">
+                      <tr>
+                        <th className="px-4 py-2 font-semibold">Attack</th>
+                        <th className="px-3 py-2 font-semibold">Category</th>
+                        <th className="px-3 py-2 font-semibold">Expected</th>
+                        <th className="px-3 py-2 font-semibold">Actual</th>
+                        <th className="px-3 py-2 font-semibold text-center">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {redTeam.results.map((r, i) => (
+                        <tr
+                          key={i}
+                          className={`border-t border-neutral-100 ${
+                            r.defended ? 'bg-white' : 'bg-rose-50'
+                          }`}
+                        >
+                          <td className="px-4 py-2 text-neutral-800">{r.attack}</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-neutral-500">
+                            {r.category}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-neutral-500">
+                            ≥ {r.expected_min}
+                          </td>
+                          <td
+                            className={`px-3 py-2 font-mono text-[11px] font-semibold ${
+                              r.actual === 'BLOCK'
+                                ? 'text-rose-700'
+                                : r.actual === 'WARN'
+                                ? 'text-amber-700'
+                                : 'text-neutral-600'
+                            }`}
+                          >
+                            {r.actual}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {r.defended ? (
+                              <span className="text-emerald-600 font-bold">✓ caught</span>
+                            ) : (
+                              <span className="text-rose-600 font-bold">✕ missed</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-4 py-2.5 border-t border-neutral-100 text-[11px] text-neutral-500 bg-neutral-50">
+                  Each attack is fired through the live evaluation pipeline (same engine as the feed);
+                  a pass means it was caught at or above the expected severity.
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
