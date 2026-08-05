@@ -95,6 +95,20 @@ async def submit_decision(
     db.commit()
     db.refresh(decision)
 
+    # ── Module 10 — feed the human decision into continual learning ────────────
+    try:
+        from app.models.event import EventCreate
+        from app.policy.feedback_learning import signature_for, record_feedback
+        ev = EventCreate(
+            source=event.source,
+            event_type=event.event_type,
+            payload=json.loads(event.payload) if isinstance(event.payload, str) else (event.payload or {}),
+            original_goal=event.original_goal,
+        )
+        record_feedback(signature_for(ev), body.decision)
+    except Exception as exc:  # never let learning break the endpoint
+        logger.warning("Feedback learning record failed: %s", exc)
+
     logger.info(
         "Human decision for event %d: %s", event_id, body.decision
     )

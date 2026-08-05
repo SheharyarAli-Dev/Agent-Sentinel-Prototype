@@ -101,12 +101,14 @@ def _run_cursor_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.context_integrity import evaluate_context_integrity
     from app.policy.sequential_behaviour import evaluate_sequence
     from app.policy.tool_integrity import evaluate_tool_integrity
+    from app.policy.predictive_defence import evaluate_predictive_defence
 
     results: list[DecisionCreate] = []
     results.append(evaluate_plan(event))
     results.append(evaluate_context_integrity(event))   # prompt-injection defense
     results.append(evaluate_tool_integrity(event))      # MCP tool-poisoning defense
     results.append(evaluate_sequence(event))            # trajectory analysis
+    results.append(evaluate_predictive_defence(event))  # early attack forecasting
 
     if event.original_goal:
         results.append(evaluate_intent(event))
@@ -120,6 +122,7 @@ def _run_n8n_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.context_integrity import evaluate_context_integrity
     from app.policy.sequential_behaviour import evaluate_sequence
     from app.policy.tool_integrity import evaluate_tool_integrity
+    from app.policy.predictive_defence import evaluate_predictive_defence
 
     results: list[DecisionCreate] = []
     # For n8n, planning_verification skips the code-quality sub-module
@@ -128,6 +131,7 @@ def _run_n8n_modules(event: EventCreate) -> list[DecisionCreate]:
     results.append(evaluate_context_integrity(event))   # prompt-injection defense
     results.append(evaluate_tool_integrity(event))      # MCP tool-poisoning defense
     results.append(evaluate_sequence(event))            # trajectory analysis
+    results.append(evaluate_predictive_defence(event))  # early attack forecasting
 
     if event.original_goal:
         results.append(evaluate_intent(event))
@@ -194,10 +198,24 @@ def _aggregate(
         )
     ) or ", ".join(dict.fromkeys(r.module for r in results))
 
+    # ── Module 9 — Uncertainty-Aware adjustment (confidence + adaptive threshold)
+    from app.policy.uncertainty import apply_uncertainty
+    final_verdict, confidence, unc_note = apply_uncertainty(results, final_verdict, final_risk)
+    if unc_note:
+        all_reasons.append(unc_note)
+
+    # ── Module 10 — Human-Feedback Safety Learning adjustment ───────────────────
+    if event is not None:
+        from app.policy.feedback_learning import apply_learning
+        learned_verdict, learn_note = apply_learning(event, final_verdict)
+        if learn_note:
+            all_reasons.append(learn_note)
+            final_verdict = learned_verdict
+
     final = DecisionCreate(
         verdict=final_verdict,
         reasons=all_reasons,
-        suggested_fix=combined_fix,
+        suggested_fix=combined_fix if final_verdict != "ALLOW" else "",
         module=modules,
         risk_score=final_risk,
     )

@@ -62,6 +62,20 @@ export async function evaluateEvent(event: EventCreate): Promise<EvaluateRespons
   return data
 }
 
+export interface RedTeamReport {
+  total_attacks: number
+  defended: number
+  coverage_pct: number
+  gaps: Array<{ attack: string; actual: string; expected_min: string }>
+  results: Array<{ attack: string; category: string; expected_min: string; actual: string; defended: boolean }>
+}
+
+/** Run the automated adversarial test suite (Red Team Simulator). */
+export async function runRedTeam(): Promise<RedTeamReport> {
+  const { data } = await client.get<RedTeamReport>('/red-team')
+  return data
+}
+
 /** Get the current decision for an event. */
 export async function getDecision(eventId: number): Promise<DecisionRecord> {
   const { data } = await client.get<DecisionRecord>(`/decide/${eventId}`)

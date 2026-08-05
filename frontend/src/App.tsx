@@ -22,7 +22,7 @@ import { LiveFeed } from './components/LiveFeed'
 import { ApprovalModal } from './components/ApprovalModal'
 import { BackgroundCanvas } from './components/BackgroundCanvas'
 import { FastNucesLogo } from './components/FastNucesLogo'
-import { evaluateEvent, type EventRecord, type DecisionRecord } from './lib/api'
+import { evaluateEvent, runRedTeam, type EventRecord, type DecisionRecord, type RedTeamReport } from './lib/api'
 
 export const App: React.FC = () => {
   const { status, messages, clearMessages } = useWebSocket()
@@ -31,6 +31,19 @@ export const App: React.FC = () => {
     decision: DecisionRecord
   } | null>(null)
   const [isTriggering, setIsTriggering] = useState(false)
+  const [redTeam, setRedTeam] = useState<RedTeamReport | null>(null)
+  const [redTeamLoading, setRedTeamLoading] = useState(false)
+
+  const handleRedTeam = async () => {
+    setRedTeamLoading(true)
+    try {
+      setRedTeam(await runRedTeam())
+    } catch {
+      setRedTeam(null)
+    } finally {
+      setRedTeamLoading(false)
+    }
+  }
 
   // Demo Trigger for quick UI testing
   const triggerDemoEvent = async (type: 'valid_coffee' | 'untrusted_coffee' | 'over_limit_coffee' | 'cursor_plan' | 'policy_cap' | 'policy_destructive' | 'context_injection' | 'exfil_chain' | 'tool_poison' | 'privilege' | 'memory_poison' | 'multi_agent') => {
@@ -279,7 +292,28 @@ export const App: React.FC = () => {
         {/* Bottom Pill Box with Reload Entrance & Hover Effect */}
         <div className="mt-14 animate-hero-title-in [animation-delay:700ms] cursor-pointer">
           <div className="px-6 py-2.5 rounded-full bg-[#E5E4DD]/90 border border-[#D5D4CC] text-[#2C2D30] text-xs sm:text-sm font-medium shadow-xs inline-flex items-center transition-all duration-300 hover:scale-105 hover:bg-[#DDDCD4] hover:border-[#C8C7BE] hover:shadow-md">
-            12-Module Safety Core (Policy • ATTVE • Intent • Planning • Context • Sequential • Tool • Least-Privilege • Memory • Multi-Agent • Governance • Explainability)
+            16-Module Safety Core (Policy • ATTVE • Intent • Planning • Context • Sequential • Tool • Least-Privilege • Memory • Multi-Agent • Predictive • Uncertainty • Feedback • Governance • Explainability • Red-Team)
+          </div>
+          <div className="mt-3">
+            <button
+              onClick={handleRedTeam}
+              disabled={redTeamLoading}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 transition-colors disabled:opacity-50"
+            >
+              {redTeamLoading ? 'Running adversarial tests…' : '🎯 Run Red-Team Self-Test'}
+            </button>
+            {redTeam && (
+              <span
+                className={`ml-3 text-xs font-mono px-2 py-1 rounded-md border ${
+                  redTeam.coverage_pct === 100
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : 'text-amber-700 bg-amber-50 border-amber-200'
+                }`}
+              >
+                Defense coverage: {redTeam.defended}/{redTeam.total_attacks} = {redTeam.coverage_pct}%
+                {redTeam.gaps.length > 0 && ` · ${redTeam.gaps.length} gap(s)`}
+              </span>
+            )}
           </div>
         </div>
       </section>

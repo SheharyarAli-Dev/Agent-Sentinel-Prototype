@@ -248,3 +248,23 @@ The agent's **input** (Context Integrity), **tools** (Tool Poisoning), **memory*
 and **collaborations** (Multi-Agent) are now all defended, then governed and explained.
 
 Tests: 70 passing. New suite: `test_advanced_security_modules.py`.
+
+## Roadmap completion — 4 final modules (all 16 now implemented)
+
+- **Predictive Defence Engine** (`predictive_defence.py`) — forecasts attacks
+  *before* they complete by matching the session trajectory against prefixes of
+  known attack templates and predicting the next dangerous step (early WARN).
+- **Uncertainty-Aware Risk Prediction** (`uncertainty.py`) — estimates decision
+  confidence from module agreement + risk proximity to the threshold, and
+  applies adaptive thresholding (uncertain borderline ALLOW → WARN, "when unsure,
+  ask a human").
+- **Human Feedback Safety Learning** (`feedback_learning.py`) — records every
+  human approve/reject and adapts: a signature approved ≥3× auto-clears future
+  WARNs (spec KPI: adapts ≤3), a signature rejected ≥3× tightens future ALLOWs.
+- **AI Red Team Simulator** (`red_team.py`, `GET /api/red-team`) — runs a catalog
+  of adversarial attacks through the live pipeline and reports defense coverage.
+  Current coverage: **100% (11/11 attacks defended)**. A "Run Red-Team Self-Test"
+  button on the dashboard shows coverage live.
+
+The system now implements **16 modules** end-to-end. Tests: **77 passing**
+(new suite `test_roadmap_modules.py`).
