@@ -22,7 +22,7 @@ import { LiveFeed } from './components/LiveFeed'
 import { ApprovalModal } from './components/ApprovalModal'
 import { BackgroundCanvas } from './components/BackgroundCanvas'
 import { FastNucesLogo } from './components/FastNucesLogo'
-import { evaluateEvent, runRedTeam, type EventRecord, type DecisionRecord, type RedTeamReport } from './lib/api'
+import { evaluateEvent, runRedTeam, submitDecision, type EventRecord, type DecisionRecord, type RedTeamReport } from './lib/api'
 
 export const App: React.FC = () => {
   const { status, messages, clearMessages } = useWebSocket()
@@ -46,7 +46,7 @@ export const App: React.FC = () => {
   }
 
   // Demo Trigger for quick UI testing
-  const triggerDemoEvent = async (type: 'valid_coffee' | 'untrusted_coffee' | 'over_limit_coffee' | 'cursor_plan' | 'policy_cap' | 'policy_destructive' | 'context_injection' | 'exfil_chain' | 'tool_poison' | 'privilege' | 'memory_poison' | 'multi_agent') => {
+  const triggerDemoEvent = async (type: 'valid_coffee' | 'untrusted_coffee' | 'over_limit_coffee' | 'cursor_plan' | 'policy_cap' | 'policy_destructive' | 'context_injection' | 'exfil_chain' | 'tool_poison' | 'privilege' | 'memory_poison' | 'multi_agent' | 'predictive' | 'feedback_learning') => {
     setIsTriggering(true)
     try {
       if (type === 'valid_coffee') {
@@ -201,6 +201,45 @@ export const App: React.FC = () => {
           },
           original_goal: 'Delegate a cleanup task to another agent.',
         })
+      } else if (type === 'predictive') {
+        // Single sensitive read in a fresh session — Predictive Defence forecasts
+        // the exfiltration chain BEFORE the outbound step is attempted.
+        await evaluateEvent({
+          source: 'cursor',
+          event_type: 'file_read',
+          payload: { target: 'read customer database records', session_id: `pred_${Date.now()}` },
+          original_goal: 'Read customer database records for a report.',
+        })
+      } else if (type === 'feedback_learning') {
+        // Send the same flagged action + approve it 3× ⇒ the 4th auto-clears.
+        const mkPayload = () => ({
+          source: 'transaction' as const,
+          event_type: 'purchase',
+          payload: {
+            merchant_id: 'MERCH_001',
+            merchant_name: 'Good Beans Coffee',
+            amount: 75.0,
+            currency: 'USD',
+            transaction_id: `TXN_FB_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            item: 'Team Catering',
+          },
+          original_goal: 'Order catering for the team meeting.',
+        })
+        // 3 rounds of WARN → human approves
+        for (let i = 0; i < 3; i++) {
+          const res = await evaluateEvent(mkPayload())
+          if (res.decision.verdict === 'WARN') {
+            try {
+              await submitDecision(res.event.id, 'approved')
+            } catch {
+              /* ignore */
+            }
+          }
+          await new Promise((r) => setTimeout(r, 500))
+        }
+        // 4th time — feedback learning should now auto-clear it to ALLOW
+        await new Promise((r) => setTimeout(r, 400))
+        await evaluateEvent(mkPayload())
       } else if (type === 'cursor_plan') {
         await evaluateEvent({
           source: 'cursor',
@@ -323,7 +362,7 @@ export const App: React.FC = () => {
         <div className="max-w-7xl mx-auto space-y-8">
           
           {/* Header Bar: Dark Stadium Pill Center + Simulate Button Right */}
-          <div className="relative flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="relative z-50 flex flex-col md:flex-row items-center justify-between gap-4">
             
             {/* Center Dark Stadium Pill Container */}
             <div className="w-full md:w-auto mx-auto px-10 py-5 rounded-[32px] bg-gradient-to-r from-[#E8E7E2] via-[#DFDDD6] to-[#E8E7E2] text-center shadow-md border border-[#D5D3CB] transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:from-[#DEDDD7] hover:via-[#D5D3CB] hover:to-[#DEDDD7]">
@@ -345,7 +384,7 @@ export const App: React.FC = () => {
                 <span className="text-[10px]">▼</span>
               </button>
 
-              <div className="absolute right-0 top-full mt-2 w-64 py-2 bg-white border border-neutral-200 rounded-2xl shadow-xl hidden group-hover:block z-50 animate-slide-up">
+              <div className="absolute right-0 top-full mt-2 w-64 py-2 bg-white border border-neutral-200 rounded-2xl shadow-xl hidden group-hover:block z-[100] animate-slide-up max-h-[70vh] overflow-y-auto">
                 <div className="px-3.5 py-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                   Select Demo Scenario
                 </div>
@@ -426,6 +465,21 @@ export const App: React.FC = () => {
                   className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
                 >
                   👥 Cross-Agent Escalation → BLOCK
+                </button>
+                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-t border-neutral-100 mt-1">
+                  Adaptive Modules (Predict / Learn)
+                </div>
+                <button
+                  onClick={() => triggerDemoEvent('predictive')}
+                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-amber-50 hover:text-amber-900 transition-colors"
+                >
+                  🔮 Predictive Defence (early forecast) → WARN
+                </button>
+                <button
+                  onClick={() => triggerDemoEvent('feedback_learning')}
+                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+                >
+                  🧠 Feedback Learning (3× approve → auto-clear)
                 </button>
               </div>
             </div>
