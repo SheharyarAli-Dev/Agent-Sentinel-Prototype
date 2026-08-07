@@ -5,16 +5,19 @@
  * Uses Lexend font for all content in accordance with design requirements.
  * Includes smooth hover state highlighting mouse pointer focus.
  */
-import React from 'react'
+import React, { useState } from 'react'
 import type { EventRecord, DecisionRecord } from '../lib/api'
+import { unblockAction } from '../lib/api'
 
 interface EventCardProps {
   event: EventRecord
   decision: DecisionRecord
   onReview?: (event: EventRecord, decision: DecisionRecord) => void
+  onDecisionUpdate?: (eventId: number, newDecision: DecisionRecord) => void
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview, onDecisionUpdate }) => {
+  const [isUnblocking, setIsUnblocking] = useState(false)
   const isAllow = decision.verdict === 'ALLOW'
   const isWarn = decision.verdict === 'WARN'
   const isBlock = decision.verdict === 'BLOCK'
@@ -170,7 +173,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview 
         </div>
 
         <div>
-          {decision.human_decision === 'approved' ? (
+          {decision.unblocked_by_human ? (
+            <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-100 text-violet-800 border border-violet-300 flex items-center gap-1">
+              🔓 Unblocked by Human
+            </span>
+          ) : decision.human_decision === 'approved' ? (
             <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
               ✓ Human Approved
             </span>
@@ -189,6 +196,26 @@ export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview 
             <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-amber-100 text-amber-900 border border-amber-300">
               Pending Human Review
             </span>
+          ) : isBlock ? (
+            <button
+              disabled={isUnblocking}
+              onClick={async () => {
+                if (!window.confirm(`Unblock Event #${event.id}? This overrides the BLOCK decision and marks the action as permitted.`)) return
+                setIsUnblocking(true)
+                try {
+                  const updated = await unblockAction(event.id)
+                  if (onDecisionUpdate) onDecisionUpdate(event.id, updated)
+                } catch (err) {
+                  console.error('Unblock failed:', err)
+                  alert('Failed to unblock. Please try again.')
+                } finally {
+                  setIsUnblocking(false)
+                }
+              }}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-900 border border-violet-300 transition-all duration-200 flex items-center gap-1.5 shadow-sm hover:shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUnblocking ? '⏳ Unblocking...' : '🔓 Unblock Action'}
+            </button>
           ) : (
             <span className="text-xs text-neutral-400">Auto-Resolved</span>
           )}

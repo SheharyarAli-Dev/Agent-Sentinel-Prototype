@@ -22,6 +22,7 @@ import { LiveFeed } from './components/LiveFeed'
 import { ApprovalModal } from './components/ApprovalModal'
 import { BackgroundCanvas } from './components/BackgroundCanvas'
 import { FastNucesLogo } from './components/FastNucesLogo'
+import { AnalyticsPanel } from './components/AnalyticsPanel'
 import { evaluateEvent, runRedTeam, submitDecision, type EventRecord, type DecisionRecord, type RedTeamReport } from './lib/api'
 
 export const App: React.FC = () => {
@@ -425,6 +426,9 @@ export const App: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* ── Analytics & Statistics Panel ─────────────────────────────────────── */}
+      <AnalyticsPanel messages={messages} />
 
       {/* ── Second Page / Scrolled Area (100% Matched to User's Toolbar Screenshot) ── */}
       <section className="relative z-10 bg-[#F8F7F2]/40 backdrop-blur-sm border-t border-neutral-200/60 px-6 lg:px-12 py-10 min-h-screen font-lexend">

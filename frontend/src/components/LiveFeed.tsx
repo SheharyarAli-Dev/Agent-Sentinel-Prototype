@@ -40,7 +40,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
       const msg = messages[i]
       if (msg.type === 'new_decision') {
         map.set(msg.event.id, { event: msg.event, decision: msg.decision })
-      } else if (msg.type === 'human_decision') {
+      } else if (msg.type === 'human_decision' || msg.type === 'human_unblock') {
         const existing = map.get(msg.event_id)
         if (existing) {
           map.set(msg.event_id, {

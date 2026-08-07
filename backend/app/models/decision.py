@@ -72,6 +72,9 @@ class DecisionORM(Base):
     # NULL until a human acts on a WARN decision.
     human_decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
     human_timestamp: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # True when a human operator overrides (unblocks) a BLOCK decision.
+    unblocked_by_human: Mapped[bool] = mapped_column(Integer, nullable=False, default=0)
+    unblock_timestamp: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # ── helpers ────────────────────────────────────────────────────────────────
     def get_reasons(self) -> list[str]:
@@ -136,6 +139,8 @@ class DecisionResponse(BaseModel):
     timestamp: datetime
     human_decision: HumanDecision | None = None
     human_timestamp: datetime | None = None
+    unblocked_by_human: bool = False
+    unblock_timestamp: datetime | None = None
 
     model_config = {"from_attributes": True}
 

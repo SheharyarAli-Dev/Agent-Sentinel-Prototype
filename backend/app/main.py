@@ -24,6 +24,7 @@ from app.api.decide import router as decide_router
 from app.api.n8n_webhook import router as n8n_router
 from app.api.governance import router as governance_router
 from app.api.red_team import router as red_team_router
+from app.api.unblock import router as unblock_router
 from app.websocket.manager import manager
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ app.include_router(decide_router)
 app.include_router(n8n_router)
 app.include_router(governance_router)
 app.include_router(red_team_router)
+app.include_router(unblock_router)
 
 
 # ── WebSocket endpoint ─────────────────────────────────────────────────────────

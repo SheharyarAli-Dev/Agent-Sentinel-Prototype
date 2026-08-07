@@ -40,6 +40,8 @@ export interface DecisionRecord {
   timestamp: string
   human_decision: HumanDecision | null
   human_timestamp: string | null
+  unblocked_by_human: boolean
+  unblock_timestamp: string | null
 }
 
 export interface EvaluateResponse {
@@ -92,5 +94,11 @@ export async function submitDecision(
     decision,
     notes,
   })
+  return data
+}
+
+/** Unblock a BLOCK decision (human operator override). */
+export async function unblockAction(eventId: number): Promise<DecisionRecord> {
+  const { data } = await client.post<DecisionRecord>(`/unblock/${eventId}`)
   return data
 }

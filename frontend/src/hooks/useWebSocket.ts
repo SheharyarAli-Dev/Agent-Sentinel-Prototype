@@ -28,7 +28,13 @@ export interface HumanDecisionMessage {
   decision: EvaluateResponse['decision']
 }
 
-export type WsMessage = NewDecisionMessage | HumanDecisionMessage
+export interface HumanUnblockMessage {
+  type: 'human_unblock'
+  event_id: number
+  decision: EvaluateResponse['decision']
+}
+
+export type WsMessage = NewDecisionMessage | HumanDecisionMessage | HumanUnblockMessage
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
