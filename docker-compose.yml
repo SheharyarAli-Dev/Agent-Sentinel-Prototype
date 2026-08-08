@@ -9,11 +9,18 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/data:/app/data
+      
+    # Environment variables used by the backend application.
     environment:
       - APP_ENV=development
       - DATABASE_URL=sqlite:///./data/risk_gatekeeper.db
+      
+    # Starts FastAPI with Uvicorn.
+    # --reload automatically restarts the server when backend code changes.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
+  # Frontend web application.
+  # Provides the user interface for interacting with the Risk Gatekeeper.
   frontend:
     build:
       context: ./frontend
@@ -23,6 +30,18 @@ services:
     depends_on:
       - backend
 
+# ------------------------------------------------------------
+# LOCAL DEVELOPMENT (without Docker)
+# ------------------------------------------------------------
+
+# Backend:
+#   cd backend
+#   source venv/bin/activate
+#   uvicorn app.main:app --reload
+
+# Frontend:
+#   cd frontend
+#   npm run dev
 # NOTE: Dockerfiles for backend and frontend are not included in this prototype.
 # Run locally using:
 #   Backend:  cd backend && source venv/bin/activate && uvicorn app.main:app --reload
