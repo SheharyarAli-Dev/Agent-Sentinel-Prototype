@@ -9,19 +9,28 @@ safe in isolation but no longer serve what was actually asked.
 
 Applies to: cursor (primary), n8n (primary), transaction (optional/light).
 
-Logic for Prototype (Rule-Based Keyword / Jaccard Similarity)
-─────────────────────────────────────────────────────────────
-1. Extract tokens (alphanumeric words) from original_goal and action description/target.
+Logic (Semantic Intent Verification — Increment 1)
+────────────────────────────────────────────────────
+1. Extract tokens (alphanumeric words) from original_goal and action text.
 2. Filter out common English stopwords.
 3. Compute Jaccard similarity = |Goal ∩ Action| / |Goal ∪ Action|.
-4. Flag intent drift when similarity drops below settings.intent_drift_threshold (default 0.15).
+4. If Jaccard similarity is at or above settings.intent_drift_threshold,
+   the action is treated as aligned (lexical baseline).
+5. Otherwise call compute_semantic_drift():
+       drift <= 0.25 → semantically aligned (ALLOW)
+       drift >  0.25 → WARN for non-advisory evaluation
+   For this increment compute_semantic_drift() is a deterministic lexical
+   estimator (1.0 - Jaccard). It does not use a machine-learning model; a
+   sentence-transformer backend will replace its internals in a later increment.
+6. If compute_semantic_drift() raises, fall back to the Jaccard result alone and
+   record "lexical fallback" in the reasons.
+7. Intent Verification Version 1 never independently returns BLOCK.
 
-Future-Work Extension Point
-───────────────────────────
-compute_semantic_drift() raises NotImplementedError.  A sentence-transformer
-embedding model will replace the Jaccard heuristic in future work.
+Advisory mode (transactions): drift is reported informationally only — verdict
+always ALLOW, risk_score always 0.0, suggested_fix always empty. ATTVE (Module 2)
+remains authoritative for transaction safety.
 
-Entry point: evaluate_intent(event: EventCreate) -> DecisionCreate
+Entry point: evaluate_intent(event: EventCreate, advisory: bool = False)
 """
 from __future__ import annotations
 
@@ -47,6 +56,9 @@ _STOPWORDS = {
     "do", "does", "did", "doing", "would", "could", "make", "user", "order", "file",
 }
 
+# Semantic drift at or below this value is treated as semantically aligned.
+_SEMANTIC_ALIGNED_DRIFT = 0.25
+
 
 def _tokenize(text: str) -> set[str]:
     """Extract lowercase alphanumeric tokens, stripping stopwords."""
@@ -56,47 +68,96 @@ def _tokenize(text: str) -> set[str]:
     return {w for w in words if w not in _STOPWORDS and len(w) > 1}
 
 
-# ── Future-Work Extension Point ────────────────────────────────────────────────
 def compute_semantic_drift(goal_text: str, action_text: str) -> float:
     """
-    FUTURE WORK — Phase 2 of the full project (out of scope for prototype).
+    Compute semantic drift between a goal sentence and an action sentence.
 
-    This function will compute a semantic drift score using a sentence-
-    transformer model (e.g. all-MiniLM-L6-v2) by comparing the cosine
-    similarity between the embedding of `goal_text` and `action_text`.
+    Returns:
+        float in [0.0, 1.0]:
+            0.0 = strongly aligned
+            1.0 = fully drifted
 
-    DO NOT call this function — it always raises NotImplementedError.
+    Increment 1: a deterministic lexical estimator (1.0 - Jaccard similarity over
+    stopword-filtered token sets). No machine-learning library is involved; a
+    sentence-transformer embedding model will replace the internals in a later
+    increment without changing this signature.
+
+    If either input is empty or whitespace, returns 1.0 (full drift).
     """
-    raise NotImplementedError(
-        "compute_semantic_drift() is a future-work extension point. "
-        "Sentence-transformer embedding similarity checks will replace the "
-        "Jaccard heuristic in future project phases."
-    )
+    if not goal_text or not goal_text.strip() or not action_text or not action_text.strip():
+        return 1.0
+
+    goal_tokens = _tokenize(goal_text)
+    action_tokens = _tokenize(action_text)
+    if not goal_tokens or not action_tokens:
+        return 1.0
+
+    intersection = goal_tokens & action_tokens
+    union = goal_tokens | action_tokens
+    similarity = len(intersection) / len(union) if union else 0.0
+    drift = round(1.0 - similarity, 4)
+    return max(0.0, min(1.0, drift))
+
+
+def _collect_action_texts(event: EventCreate) -> list[str]:
+    """Collect all considered action text fields (with event_type first)."""
+    payload = event.payload or {}
+    texts: list[str] = [
+        event.event_type,
+        str(payload.get("description", "")),
+        str(payload.get("target", "")),
+        str(payload.get("command", "")),
+        str(payload.get("merchant_name", "")),
+        str(payload.get("item", "")),
+    ]
+    if isinstance(payload.get("steps"), list):
+        for step in payload["steps"]:
+            if isinstance(step, dict):
+                texts.append(str(step.get("description", "")))
+                texts.append(str(step.get("target", "")))
+    return texts
+
+
+def _has_meaningful_action_details(event: EventCreate) -> bool:
+    """
+    True when the action carries descriptive evidence beyond event.event_type.
+    event_type alone (e.g. "file_write") is not considered sufficient evidence.
+    """
+    payload = event.payload or {}
+    for key in ("description", "target", "command", "merchant_name", "item"):
+        val = payload.get(key)
+        if isinstance(val, str) and val.strip():
+            return True
+    if isinstance(payload.get("steps"), list):
+        for step in payload["steps"]:
+            if not isinstance(step, dict):
+                continue
+            for key in ("description", "target"):
+                val = step.get(key)
+                if isinstance(val, str) and val.strip():
+                    return True
+    return False
 
 
 def evaluate_intent(event: EventCreate, advisory: bool = False) -> DecisionCreate:
     """
-    Evaluate action alignment against original_goal using Jaccard keyword overlap.
+    Evaluate action alignment against original_goal.
 
     Args:
         event: Normalised agent event with original_goal.
-        advisory: When True (used for transactions), intent drift is reported as
-            an INFORMATIONAL signal only and never escalates the verdict above
-            ALLOW. Comparing a natural-language goal ("order a coffee") to a
-            transaction's structured fields ("Good Beans Coffee / Flat White")
-            via keyword overlap is inherently lossy, so for transactions the
-            authoritative safety check is ATTVE (Module 2); intent drift merely
-            annotates. This prevents legitimate purchases from being false-
-            flagged as WARN purely because their merchant/item wording differs
-            from the goal sentence.
+        advisory: When True (transactions), intent drift is reported as an
+            INFORMATIONAL signal only — verdict always ALLOW, risk_score always
+            0.0, suggested_fix always empty. Comparing a natural-language goal
+            ("order a coffee") to structured payment fields is inherently lossy,
+            so ATTVE (Module 2) is authoritative for transaction safety.
 
     Returns:
-        DecisionCreate with verdict (ALLOW or WARN), reasons, suggested_fix,
-        module="intent_verification", and risk_score.
+        DecisionCreate with verdict (ALLOW or WARN; never BLOCK), reasons,
+        suggested_fix, module="intent_verification", and risk_score.
     """
     goal = event.original_goal
     if not goal or not goal.strip():
-        # If no goal specified, skip drift check
+        # No goal specified → skip the drift check.
         return DecisionCreate(
             verdict="ALLOW",
             reasons=["Intent verification skipped: No original session goal provided."],
@@ -105,83 +166,144 @@ def evaluate_intent(event: EventCreate, advisory: bool = False) -> DecisionCreat
             risk_score=0.0,
         )
 
-    # Gather action text from payload fields
-    payload = event.payload or {}
-    action_texts: list[str] = [
-        event.event_type,
-        str(payload.get("description", "")),
-        str(payload.get("target", "")),
-        str(payload.get("command", "")),
-        str(payload.get("merchant_name", "")),
-        str(payload.get("item", "")),
-    ]
-
-    # Combine step descriptions if present
-    if isinstance(payload.get("steps"), list):
-        for step in payload["steps"]:
-            if isinstance(step, dict):
-                action_texts.append(str(step.get("description", "")))
-                action_texts.append(str(step.get("target", "")))
-
+    action_texts = _collect_action_texts(event)
     action_full = " ".join(t for t in action_texts if t).strip()
+
+    # Missing meaningful action text: the action cannot be verified.
+    if not _has_meaningful_action_details(event):
+        if advisory:
+            return DecisionCreate(
+                verdict="ALLOW",
+                reasons=[
+                    f"Intent note (advisory): insufficient action details to compare "
+                    f"against goal '{goal}'. Not blocking — ATTVE (Module 2) is "
+                    "authoritative for transaction safety."
+                ],
+                suggested_fix="",
+                module="intent_verification",
+                risk_score=0.0,
+            )
+        return DecisionCreate(
+            verdict="WARN",
+            reasons=[
+                "Intent verification: insufficient action text to verify intent. "
+                "The action is uncertain because there is no descriptive detail "
+                "beyond the event type.",
+                f"Original Goal: '{goal}'",
+                f"Proposed Action: '{action_full or '(no descriptive action text)'}'",
+            ],
+            suggested_fix=(
+                "Provide descriptive action text (description, target, or command) "
+                "so the action's contribution to the stated goal can be verified."
+            ),
+            module="intent_verification",
+            risk_score=0.5,
+        )
 
     goal_tokens = _tokenize(goal)
     action_tokens = _tokenize(action_full)
 
-    if not goal_tokens or not action_tokens:
+    intersection = goal_tokens & action_tokens
+    union = goal_tokens | action_tokens
+    jaccard_sim = len(intersection) / len(union) if union else 0.0
+    jaccard_drift = round(1.0 - jaccard_sim, 4)
+    threshold = settings.intent_drift_threshold
+
+    # ── Semantic evidence, isolated from the lexical decision ───────────────────
+    semantic_ok = True
+    semantic_drift: float | None = None
+    try:
+        semantic_score = compute_semantic_drift(goal, action_full)
+        semantic_drift = max(0.0, min(1.0, float(semantic_score)))
+    except Exception:
+        semantic_ok = False
+        semantic_drift = None
+
+    reason_notes: list[str] = []
+    if not semantic_ok:
+        reason_notes.append(
+            "Lexical fallback mode used (semantic scorer unavailable); Jaccard "
+            "evidence used."
+        )
+
+    if advisory:
+        # Informational-only output. Verdict/risk/fix never vary.
+        if jaccard_sim >= threshold:
+            info = (
+                f"Intent note (advisory): action aligns with goal '{goal}' "
+                f"(keyword overlap: {jaccard_sim:.1%})."
+            )
+        elif semantic_ok and semantic_drift is not None and semantic_drift <= _SEMANTIC_ALIGNED_DRIFT:
+            info = (
+                f"Intent note (advisory): semantically aligned with goal '{goal}' "
+                f"(semantic drift {semantic_drift:.2f}; keyword overlap {jaccard_sim:.1%})."
+            )
+        else:
+            info = (
+                f"Intent note (advisory): low alignment with goal '{goal}' — "
+                f"keyword overlap {jaccard_sim:.1%}, semantic drift "
+                f"{semantic_drift if semantic_drift is not None else 'n/a'}. "
+                "Not blocking — ATTVE (Module 2) is authoritative for transaction safety."
+            )
         return DecisionCreate(
             verdict="ALLOW",
-            reasons=["Intent verification: Token set insufficient for overlap comparison."],
+            reasons=[info, *reason_notes],
             suggested_fix="",
             module="intent_verification",
             risk_score=0.0,
         )
 
-    intersection = goal_tokens & action_tokens
-    union = goal_tokens | action_tokens
+    # ── Non-advisory decision ───────────────────────────────────────────────────
+    if jaccard_sim >= threshold:
+        # Lexical overlap is sufficient to consider the action aligned.
+        return DecisionCreate(
+            verdict="ALLOW",
+            reasons=[
+                f"Intent verified: Action aligns with original goal "
+                f"(keyword overlap: {jaccard_sim:.1%}).",
+                f"Original Goal: '{goal}'",
+                f"Proposed Action: '{action_full[:100]}...'",
+                *reason_notes,
+            ],
+            suggested_fix="",
+            module="intent_verification",
+            risk_score=0.0,
+        )
 
-    jaccard_sim = len(intersection) / len(union) if union else 1.0
-    drift_score = round(1.0 - jaccard_sim, 4)
+    # Jaccard is below threshold; trust the semantic signal if it is confident.
+    if semantic_ok and semantic_drift is not None and semantic_drift <= _SEMANTIC_ALIGNED_DRIFT:
+        return DecisionCreate(
+            verdict="ALLOW",
+            reasons=[
+                f"Intent verified: Action semantically aligns with original goal "
+                f"(semantic drift {semantic_drift:.2f}).",
+                f"Original Goal: '{goal}'",
+                f"Proposed Action: '{action_full[:100]}...'",
+                f"Keyword overlap was low ({jaccard_sim:.1%}) but semantic evidence shows alignment.",
+                *reason_notes,
+            ],
+            suggested_fix="",
+            module="intent_verification",
+            risk_score=0.0,
+        )
 
-    threshold = settings.intent_drift_threshold
-
-    if jaccard_sim < threshold:
-        if advisory:
-            # Transactions: report drift as information only, never escalate.
-            return DecisionCreate(
-                verdict="ALLOW",
-                reasons=[
-                    f"Intent note (advisory): low keyword overlap ({jaccard_sim:.1%}) "
-                    f"between action wording and goal '{goal}'. Not blocking — "
-                    "ATTVE (Module 2) is authoritative for transaction safety."
-                ],
-                suggested_fix="",
-                module="intent_verification",
-                risk_score=round(min(drift_score, 0.2), 4),
-            )
-        verdict = "WARN"
-        reasons = [
-            f"Intent drift detected: Current action description shows low keyword overlap ({jaccard_sim:.1%}) with original goal.",
+    # Uncertain / drifted. WARN, never BLOCK.
+    drift_reported = semantic_drift if semantic_drift is not None else jaccard_drift
+    return DecisionCreate(
+        verdict="WARN",
+        reasons=[
+            f"Intent drift detected: low keyword overlap ({jaccard_sim:.1%}) and "
+            f"semantic drift {drift_reported:.2f} vs. original goal.",
             f"Original Goal: '{goal}'",
             f"Proposed Action: '{action_full[:100]}...'",
-        ]
-        suggested_fix = (
-            f"Current action target/description shows low keyword alignment ({jaccard_sim:.1%}) with stated goal '{goal}'. "
-            "Confirm that this action directly contributes to the original task objective before proceeding."
-        )
-        risk_score = round(max(0.5, drift_score), 4)
-    else:
-        verdict = "ALLOW"
-        reasons = [
-            f"Intent verified: Action aligns with original goal (keyword overlap: {jaccard_sim:.1%})."
-        ]
-        suggested_fix = ""
-        risk_score = 0.0
-
-    return DecisionCreate(
-        verdict=verdict,
-        reasons=reasons,
-        suggested_fix=suggested_fix,
+            *reason_notes,
+        ],
+        suggested_fix=(
+            f"Current action shows insufficient alignment ({jaccard_sim:.1%} "
+            f"overlap, semantic drift {drift_reported:.2f}) with stated goal "
+            f"'{goal}'. Confirm the action directly contributes to the original "
+            "task objective before proceeding."
+        ),
         module="intent_verification",
-        risk_score=risk_score,
+        risk_score=round(max(0.5, drift_reported), 4),
     )

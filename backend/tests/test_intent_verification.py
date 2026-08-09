@@ -21,10 +21,25 @@ def _make_event(goal: str, action_description: str, action_target: str = "src/au
     )
 
 
-def test_compute_semantic_drift_raises():
-    """compute_semantic_drift() must raise NotImplementedError — always."""
-    with pytest.raises(NotImplementedError):
-        compute_semantic_drift("goal text", "action text")
+def test_compute_semantic_drift_returns_drift_score():
+    """
+    Contract: compute_semantic_drift() must return a float drift score in
+    [0.0, 1.0] (0.0 = strongly aligned, 1.0 = fully drifted) and must no longer
+    raise NotImplementedError.
+    """
+    drift = compute_semantic_drift("order a coffee", "buy a cappuccino")
+    assert isinstance(drift, float)
+    assert 0.0 <= drift <= 1.0
+
+
+def test_compute_semantic_drift_empty_goal_is_full_drift():
+    """Contract: with an empty goal there is no alignment evidence; drift = 1.0."""
+    assert compute_semantic_drift("", "buy a cappuccino") == 1.0
+
+
+def test_compute_semantic_drift_empty_action_is_full_drift():
+    """Contract: with an empty action there is no alignment evidence; drift = 1.0."""
+    assert compute_semantic_drift("buy a cappuccino", "") == 1.0
 
 
 def test_aligned_action_allows():
