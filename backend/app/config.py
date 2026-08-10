@@ -1,6 +1,6 @@
 """
 app/config.py
-─────────────
+-------------
 Centralised configuration for the Risk Gatekeeper backend.
 All values are read from environment variables (or a .env file) with
 sensible defaults for local development.
@@ -15,29 +15,33 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    # ── Application ────────────────────────────────────────────────────────────
+    # -- Application ----------------------------------------------------------
     app_env: str = "development"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
 
-    # ── Database ───────────────────────────────────────────────────────────────
+    # -- Database -------------------------------------------------------------
     database_url: str = "sqlite:///./data/risk_gatekeeper.db"
 
-    # ── CORS ───────────────────────────────────────────────────────────────────
+    # -- CORS -----------------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",")]
 
-    # ── Risk Thresholds — Module 2 (ATTVE) ────────────────────────────────────
+    # -- Risk Thresholds - Module 2 (ATTVE) ------------------------------------
     transaction_limit_usd: float = 50.0
 
-    # ── Risk Thresholds — Module 6 (Intent Verification) ──────────────────────
+    # -- Risk Thresholds - Module 6 (Intent Verification) ----------------------
     # Jaccard similarity below this value triggers a WARN for intent drift.
     intent_drift_threshold: float = 0.15
+    # Semantic drift at or below this value is treated as semantically aligned.
+    # PROVISIONAL value derived from the 30-case developer-authored exploratory
+    # benchmark; not a scientifically calibrated final threshold.
+    intent_semantic_aligned_drift: float = 0.38
 
-    # ── Risk Thresholds — Module 7 (Planning Verification) ────────────────────
+    # -- Risk Thresholds - Module 7 (Planning Verification) --------------------
     # A plan with more steps than this triggers a WARN for broad scope.
     plan_scope_threshold: int = 10
     # A plan touching more distinct files than this triggers a WARN.

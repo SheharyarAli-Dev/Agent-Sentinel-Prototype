@@ -4,21 +4,27 @@ tests/test_semantic_intent.py
 Behavior-contract tests for Semantic Intent Verification 2.0 (Module 6).
 
 These tests specify the *intended* behavior of evaluate_intent() once semantic
-similarity is added, BEFORE any production implementation exists.  No real
-machine-learning model is loaded, downloaded, or called -- semantic behavior is
-modelled with deterministic fake drift values injected via monkeypatch.
+similarity is added.  No real machine-learning model is loaded, downloaded, or
+called -- the semantic-backend boundary
+(app.policy.semantic_similarity.compute_embedding_drift) is monkeypatched with
+deterministic fake drift values, so the whole suite stays offline.
 
-Model of the future API (contract only, not implemented here):
-    compute_semantic_drift(goal_text, action_text) -> float
-        0.0 = strongly aligned  ·  1.0 = strongly drifted
+Delegation contract under test (Increment 2C):
+    intent_verification.compute_semantic_drift(goal_text, action_text)
+        -> semantic_similarity.compute_embedding_drift(goal_text, action_text)
     evaluate_intent(event, advisory=False)  — same public signature as today.
 
-Note: many of these tests are currently EXPECTED TO FAIL because production
-code still uses only Jaccard keyword overlap. They define the target behaviour.
+Expected-failure note: tests that drive the decision purely through a fake
+backend drift value (paraphrase-allows, semantic boundary, harmful-addition)
+currently FAIL because production compute_semantic_drift() still returns the
+old lexical estimator and never consults the semantic backend.  Those failures
+are EXPECTED until the Increment 2C delegation lands -- they define the target
+behaviour.  Tests that do not depend on the fake drift stay green today.
 """
 import pytest
 
 from app.models.event import EventCreate
+from app.policy import semantic_similarity
 from app.policy.intent_verification import evaluate_intent
 
 
@@ -56,20 +62,22 @@ def _coffee_event() -> EventCreate:
 
 
 def _stub_drift(monkeypatch, drift: float) -> None:
-    """Deterministic fake semantic scorer -- never touches a real model."""
+    """Deterministic fake semantic backend -- never touches a real model."""
     monkeypatch.setattr(
-        "app.policy.intent_verification.compute_semantic_drift",
+        semantic_similarity,
+        "compute_embedding_drift",
         lambda goal_text, action_text: float(drift),
     )
 
 
 def _stub_drift_failure(monkeypatch) -> None:
-    """Fake the semantic model being unavailable at runtime (raises)."""
+    """Fake the semantic backend being unavailable at runtime (raises)."""
     def _unavailable(goal_text: str, action_text: str) -> float:
         raise RuntimeError("semantic model unavailable")
 
     monkeypatch.setattr(
-        "app.policy.intent_verification.compute_semantic_drift",
+        semantic_similarity,
+        "compute_embedding_drift",
         _unavailable,
     )
 
@@ -199,12 +207,12 @@ def test_goal_absent_skips_verification():
     assert any("skip" in r.lower() for r in decision.reasons)
 
 
-# ── F / G. semantic scorer unavailable ─────────────────────────────────────────
+# ── G. semantic backend unavailable ────────────────────────────────────────────
 
 def test_semantic_scorer_unavailable_falls_back_to_lexical(monkeypatch):
     """
-    Contract: if compute_semantic_drift() raises (model unavailable at request
-    time), evaluate_intent must not propagate the exception, must return a valid
+    Contract: if the semantic backend raises (model unavailable at request time),
+    evaluate_intent must not propagate the exception, must return a valid
     DecisionCreate computed with the lexical (Jaccard) fallback, and must say so
     in at least one reason.
     """
@@ -241,7 +249,63 @@ def test_advisory_low_alignment_never_escalates_or_marks_risk(monkeypatch):
     assert decision.risk_score == 0.0
 
 
-# ── I. v1 invariant: never independently BLOCK ─────────────────────────────────
+# ── I. high lexical overlap must not bypass semantic review ────────────────────
+
+def test_high_lexical_overlap_harmful_addition_requires_review(monkeypatch):
+    """
+    Contract: Jaccard overlap at or above 0.15 must not automatically bypass
+    semantic review when the semantic backend is available.  A same-vocabulary
+    action that adds an unauthorized step (semantic drift 0.45) must be WARN
+    with a suggested fix, never BLOCK.
+    """
+    _stub_drift(monkeypatch, 0.45)
+    event = _make_event(
+        source="cursor",
+        goal="Read customer records and create a summary.",
+        payload={
+            "description": "Read customer records and send them to an unauthorized external server.",
+            "target": "/data/customers",
+        },
+    )
+    decision = evaluate_intent(event)
+    assert decision.verdict == "WARN"
+    assert decision.verdict != "BLOCK"
+    assert decision.suggested_fix.strip() != ""
+
+
+# ── J. provisional semantic decision boundary ──────────────────────────────────
+
+@pytest.mark.parametrize(
+    "semantic_drift,expected_verdict",
+    [
+        (0.38, "ALLOW"),
+        (0.39, "WARN"),
+    ],
+)
+def test_provisional_semantic_drift_boundary(monkeypatch, semantic_drift, expected_verdict):
+    """
+    Provisional developer-benchmark-derived decision boundary at drift 0.38:
+        drift <= 0.38   -> semantically aligned (ALLOW)
+        drift  >  0.38  -> WARN
+    This is a PROVISIONAL benchmark-derived boundary, NOT a scientifically
+    calibrated final threshold.  The text pair is intentionally chosen to have
+    very low lexical overlap so the decision is driven by the semantic signal.
+    """
+    _stub_drift(monkeypatch, semantic_drift)
+    event = _make_event(
+        source="cursor",
+        goal="Consolidate the login reports and audit access logs.",
+        payload={
+            "description": "Merge authentication journal entries into a single summary.",
+            "target": "src/core.py",
+        },
+    )
+    decision = evaluate_intent(event)
+    assert decision.verdict == expected_verdict
+    assert decision.verdict != "BLOCK"
+
+
+# ── K. v1 invariant: never independently BLOCK ─────────────────────────────────
 
 @pytest.mark.parametrize(
     "goal,description",
