@@ -22,7 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 # ── Source literals ────────────────────────────────────────────────────────────
-EventSource = Literal["cursor", "n8n", "transaction"]
+EventSource = Literal["cursor", "n8n", "transaction", "liveops"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

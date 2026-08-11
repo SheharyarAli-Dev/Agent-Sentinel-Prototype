@@ -12,6 +12,10 @@
     "transaction": {
       "allowed_capabilities": ["purchase", "refund", "query_balance"],
       "max_impact_tier": 3
+    },
+    "liveops": {
+      "allowed_capabilities": ["list_resources", "start_vm", "stop_vm", "create_snapshot"],
+      "max_impact_tier": 2
     }
   }
 }

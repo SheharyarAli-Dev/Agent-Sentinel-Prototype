@@ -1,0 +1,25 @@
+{
+  "_comment": "Canonical seed for the LiveOps simulated cloud. dev-unused-01 is unprotected, prod-api-01 and prod-backup-latest are protected. This file is NEVER modified at runtime: the SimulatedCloud class materialises a separate runtime state file from it. Do not edit canonical resource ids here without updating the LiveOps seed contract.",
+  "vms": [
+    {
+      "id": "dev-unused-01",
+      "environment": "development",
+      "state": "running",
+      "protected": false
+    },
+    {
+      "id": "prod-api-01",
+      "environment": "production",
+      "state": "running",
+      "protected": true
+    }
+  ],
+  "snapshots": [
+    {
+      "id": "prod-backup-latest",
+      "source_vm": "prod-api-01",
+      "environment": "production",
+      "protected": true
+    }
+  ]
+}

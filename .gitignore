@@ -56,3 +56,4 @@ Thumbs.db
 
 # Logs
 *.log
+backend/data/liveops_runtime_state.json

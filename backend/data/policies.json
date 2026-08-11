@@ -55,6 +55,18 @@
       "action": "WARN",
       "message": "Workflow makes an outbound request to a domain outside the organizational allowlist.",
       "suggested_fix": "Add the destination domain to the egress allowlist, or route the request through an approved gateway."
+    },
+    {
+      "id": "POL-006",
+      "description": "LiveOps: warn before stopping a production resource.",
+      "applies_to": ["liveops"],
+      "conditions": [
+        {"field": "event_type", "op": "equals", "value": "stop_vm"},
+        {"field": "any_step", "op": "regex", "value": "prod-api-01|prod-backup-latest|production"}
+      ],
+      "action": "WARN",
+      "message": "LiveOps stop_vm targets a production resource; stopping production systems carries availability risk.",
+      "suggested_fix": "Confirm the maintenance window and obtain human approval before stopping the production VM."
     }
   ]
 }
