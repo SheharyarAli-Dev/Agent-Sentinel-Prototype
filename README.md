@@ -1,6 +1,6 @@
 # Agentic Action Risk Gatekeeper — FYP Prototype
 
-Middleware system that intercepts AI agent actions, evaluates their risk before execution, and returns **ALLOW / WARN / BLOCK** decisions with suggested fixes and a plain-language explanation.
+Middleware system which intercepts AI agent actions, evaluates their risk before execution, and returns **ALLOW / WARN / BLOCK** decisions with suggested fixes and a plain-language explanation.
 
 ## Three Use Cases
 
