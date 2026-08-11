@@ -15,6 +15,9 @@ Module routing
                 Module 6 (intent drift)
   transaction → Module 2 (ATTVE — merchant, invoice, limit checks)
                 Module 6 (light / optional)
+  liveops     → Module 7 (plan safety only — no code-quality patterns)
+                Module 6 (intent drift)
+                Sequential behaviour analysis
 
 Aggregation rule (when multiple modules fire)
 ─────────────────────────────────────────────
@@ -59,6 +62,8 @@ def evaluate_event(event: EventCreate) -> DecisionCreate:
         results.extend(_run_cursor_modules(event))
     elif event.source == "n8n":
         results.extend(_run_n8n_modules(event))
+    elif event.source == "liveops":
+        results.extend(_run_liveops_modules(event))
     else:
         # Unrecognised source — pass through with a low risk score.
         results.append(
@@ -132,6 +137,31 @@ def _run_n8n_modules(event: EventCreate) -> list[DecisionCreate]:
     results.append(evaluate_tool_integrity(event))      # MCP tool-poisoning defense
     results.append(evaluate_sequence(event))            # trajectory analysis
     results.append(evaluate_predictive_defence(event))  # early attack forecasting
+
+    if event.original_goal:
+        results.append(evaluate_intent(event))
+
+    return results
+
+
+def _run_liveops_modules(event: EventCreate) -> list[DecisionCreate]:
+    """
+    Routing for LiveOps proposals.
+
+    Uses only the relevant generic modules — planning verification (plan safety,
+    with the Cursor-only code-quality sub-module skipped internally for non-Cursor
+    sources), sequential-behaviour analysis, and intent verification. It
+    deliberately does NOT run the Cursor/transaction-specific engines (ATTVE,
+    code-quality patterns). Global guards (policy engine, least privilege, memory
+    integrity, multi-agent) are already applied for every source above.
+    """
+    from app.policy.planning_verification import evaluate_plan
+    from app.policy.intent_verification import evaluate_intent
+    from app.policy.sequential_behaviour import evaluate_sequence
+
+    results: list[DecisionCreate] = []
+    results.append(evaluate_plan(event))
+    results.append(evaluate_sequence(event))
 
     if event.original_goal:
         results.append(evaluate_intent(event))
