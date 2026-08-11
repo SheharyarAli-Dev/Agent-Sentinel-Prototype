@@ -35,15 +35,29 @@ _RUNNER_PATH = _SCRIPTS_DIR / "liveops_agent.py"
 class MockBackend:
     """Deterministic in-memory fake of the Agent Sentinel HTTP API."""
 
-    def __init__(self, *, human_decisions=None, execute_status=200, evaluate_status=200):
+    def __init__(
+        self,
+        *,
+        human_decisions=None,
+        execute_status=200,
+        evaluate_status=200,
+        faults=None,
+    ):
         self.human_decisions = list(human_decisions or [])
         self.execute_status = execute_status
         self.evaluate_status = evaluate_status
+        self.faults = faults or {}  # path-prefix -> callable() that raises httpx error
         self.requests: list[httpx.Request] = []
         self.event_counter = 0
         self.execute_calls: list[int] = []
         self.reset_calls = 0
         self.evaluate_calls = 0
+        self.evaluate_bodies: list[dict] = []
+
+    def _maybe_fault(self, path: str) -> None:
+        for prefix, make_exc in self.faults.items():
+            if path.startswith(prefix):
+                raise make_exc()
 
     # -- shared payload fragments ------------------------------------------------
     def _decision_payload(self, event_id, verdict, human_decision=None):
@@ -105,12 +119,14 @@ class MockBackend:
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         path = request.url.path
+        self._maybe_fault(path)
 
         if request.method == "POST" and path == "/api/evaluate":
             self.evaluate_calls += 1
             self.event_counter += 1
             eid = self.event_counter
             body = json.loads(request.content or b"{}")
+            self.evaluate_bodies.append(body)
             payload = body.get("payload", {})
             tool = payload.get("tool")
             target = payload.get("target")
@@ -167,16 +183,19 @@ def _run(
     human_decisions=None,
     execute_status=200,
     evaluate_status=200,
+    faults=None,
     extra_args=None,
+    approval_timeout="1.0",
 ):
     backend = MockBackend(
         human_decisions=human_decisions,
         execute_status=execute_status,
         evaluate_status=evaluate_status,
+        faults=faults,
     )
-    argv = [command, "--poll-interval", "0", "--approval-timeout", "0.01"]
+    argv = [command, "--poll-interval", "0", "--approval-timeout", approval_timeout]
     if extra_args:
-        argv = extra_args + ["--poll-interval", "0", "--approval-timeout", "0.01"]
+        argv = extra_args + ["--poll-interval", "0", "--approval-timeout", approval_timeout]
     code = liveops_agent.main(argv, transport=httpx.MockTransport(backend.handler))
     return code, backend
 
@@ -205,6 +224,42 @@ def test_allow_409_conflict_reported_and_never_retried():
     assert backend.execute_calls == [1]
     assert (_methods_and_paths(backend)).count(("POST", "/api/liveops/execute/1")) == 1
     assert (_methods_and_paths(backend)).count(("POST", "/api/evaluate")) == 1
+
+
+# ── 1b. Every scenario ships a meaningful description in the request body ───────
+
+EXPECTED_DESCRIPTIONS = {
+    "dev-allow": (
+        "Stop unused development VM dev-unused-01 to reduce cost"
+    ),
+    "prod-review": (
+        "Stop the production API virtual machine prod-api-01 to reduce cost."
+    ),
+    "snapshot-block": (
+        "Delete the latest production backup snapshot prod-backup-latest."
+    ),
+}
+
+
+@pytest.mark.parametrize("scenario", sorted(EXPECTED_DESCRIPTIONS))
+def test_description_included_in_evaluate_request_body(scenario):
+    human = ["approved"] if scenario == "prod-review" else None
+    code, backend = _run(scenario, human_decisions=human)
+    assert code == liveops_agent.EXIT_OK
+    assert backend.evaluate_bodies, "runner should POST /api/evaluate once"
+    body = backend.evaluate_bodies[0]
+    assert body["payload"]["description"] == EXPECTED_DESCRIPTIONS[scenario]
+    # description lives where the policy pipeline reads it (intent_verification)
+    assert isinstance(body["payload"]["description"], str)
+    assert body["payload"]["description"].strip()
+
+
+def test_dev_description_mentions_unused_development_reduce_cost():
+    code, backend = _run("dev-allow")
+    assert code == liveops_agent.EXIT_OK
+    desc = backend.evaluate_bodies[0]["payload"]["description"]
+    for token in ("unused", "development", "reduce cost"):
+        assert token in desc
 
 
 # ── 3. WARN polls GET /api/decide/{event_id} until a human decision appears ────
@@ -240,7 +295,9 @@ def test_warn_rejected_never_executes():
 
 def test_warn_timeout_never_executes():
     # human_decisions empty -> every poll returns None -> deadline expires.
-    code, backend = _run("prod-review", human_decisions=[])
+    code, backend = _run(
+        "prod-review", human_decisions=[], approval_timeout="0.05"
+    )
     assert code == liveops_agent.EXIT_APPROVAL_TIMEOUT
     assert backend.execute_calls == []
 
@@ -337,6 +394,125 @@ def test_execute_http_failure_is_nonzero():
     code, backend = _run("dev-allow", execute_status=500)
     assert code == liveops_agent.EXIT_HTTP_ERROR
     assert backend.execute_calls == [1]  # attempted once, then reported failure
+
+
+# ── 12b. Friendly network errors (timeout / connect) ───────────────────────────
+
+def _timeout():
+    return httpx.TimeoutException("simulated read timeout")
+
+
+def _connect_error():
+    return httpx.ConnectError("simulated connection refused")
+
+
+def test_evaluation_timeout_returns_request_error(capsys):
+    code, backend = _run(
+        "dev-allow", faults={"/api/evaluate": _timeout}
+    )
+    assert code == liveops_agent.EXIT_REQUEST_ERROR
+    assert backend.execute_calls == []
+    out = capsys.readouterr().out
+    assert "timed out" in out
+    assert "Traceback" not in out
+
+
+def test_backend_connection_failure_returns_request_error(capsys):
+    code, backend = _run(
+        "dev-allow", faults={"/api/evaluate": _connect_error}
+    )
+    assert code == liveops_agent.EXIT_REQUEST_ERROR
+    assert backend.execute_calls == []
+    out = capsys.readouterr().out
+    assert "could not connect" in out
+    assert "Traceback" not in out
+
+
+def test_execution_timeout_reported_as_ambiguous_and_not_retried(capsys):
+    code, backend = _run(
+        "dev-allow", faults={"/api/liveops/execute/": _timeout}
+    )
+    assert code == liveops_agent.EXIT_REQUEST_ERROR
+    # exactly one execution POST — never retried after a timeout
+    count = sum(
+        1 for r in backend.requests
+        if r.method == "POST" and r.url.path.startswith("/api/liveops/execute/")
+    )
+    assert count == 1
+    out = capsys.readouterr().out
+    assert "outcome is UNKNOWN" in out
+    assert "NOT retried" in out
+
+
+def test_execution_connect_error_not_retried(capsys):
+    code, backend = _run(
+        "dev-allow", faults={"/api/liveops/execute/": _connect_error}
+    )
+    assert code == liveops_agent.EXIT_REQUEST_ERROR
+    count = sum(
+        1 for r in backend.requests
+        if r.method == "POST" and r.url.path.startswith("/api/liveops/execute/")
+    )
+    assert count == 1
+    assert "could not connect" in capsys.readouterr().out
+
+
+# ── 12c. Configurable request timeout ──────────────────────────────────────────
+
+def test_default_request_timeout_is_at_least_60():
+    assert liveops_agent.DEFAULT_REQUEST_TIMEOUT >= 60.0
+
+
+def test_default_request_timeout_is_120():
+    assert liveops_agent.DEFAULT_REQUEST_TIMEOUT == 120.0
+
+
+def test_custom_request_timeout_passed_to_client(monkeypatch):
+    backend = MockBackend()
+    captured: dict[str, float] = {}
+    real_make_client = liveops_agent.make_client
+
+    def spy_make_client(base_url, request_timeout=120.0, transport=None):
+        captured["request_timeout"] = request_timeout
+        return real_make_client(
+            base_url, request_timeout=request_timeout, transport=transport
+        )
+
+    monkeypatch.setattr(liveops_agent, "make_client", spy_make_client)
+    code = liveops_agent.main(
+        [
+            "dev-allow",
+            "--request-timeout", "180",
+            "--poll-interval", "0",
+            "--approval-timeout", "0.01",
+        ],
+        transport=httpx.MockTransport(backend.handler),
+    )
+    assert code == liveops_agent.EXIT_OK
+    assert captured["request_timeout"] == 180.0
+    client = real_make_client(
+        liveops_agent.DEFAULT_BASE_URL, request_timeout=180.0
+    )
+    assert client.timeout.read == 180.0
+    assert client.timeout.connect == 180.0
+
+
+def test_request_timeout_env_override(monkeypatch):
+    monkeypatch.setenv("AGENT_SENTINEL_REQUEST_TIMEOUT", "240")
+    parser = liveops_agent._build_parser()
+    args = parser.parse_args(["dev-allow"])
+    assert args.request_timeout == 240.0
+
+
+def test_request_timeout_env_unset_default():
+    parser = liveops_agent._build_parser()
+    args = parser.parse_args(["dev-allow"])
+    assert args.request_timeout == liveops_agent.DEFAULT_REQUEST_TIMEOUT
+
+
+def test_make_client_default_timeout_applied():
+    client = liveops_agent.make_client(liveops_agent.DEFAULT_BASE_URL)
+    assert client.timeout.read == liveops_agent.DEFAULT_REQUEST_TIMEOUT
 
 
 # ── 13. Invalid scenario names are rejected ────────────────────────────────────

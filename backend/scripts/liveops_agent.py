@@ -31,6 +31,8 @@ Options
 ───────
   --base-url URL            backend base URL (default http://127.0.0.1:8000,
                             override with env AGENT_SENTINEL_URL)
+  --request-timeout SECONDS per-request HTTP timeout (default 120.0, override
+                            with env AGENT_SENTINEL_REQUEST_TIMEOUT)
   --poll-interval SECONDS   WARN decision-poll interval (default 2.0)
   --approval-timeout SECONDS  overall time to wait for a human decision (default 60.0)
 
@@ -41,6 +43,7 @@ Exit codes
   2  execution conflict (HTTP 409) — reported, never retried
   3  WARN approval timed out — never executed
   4  unexpected verdict from the backend
+  5  a network / request error (timeout or connection failure) — never retried
 """
 from __future__ import annotations
 
@@ -53,6 +56,7 @@ from typing import Any
 import httpx
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
+DEFAULT_REQUEST_TIMEOUT = 120.0
 DEFAULT_POLL_INTERVAL = 2.0
 DEFAULT_APPROVAL_TIMEOUT = 60.0
 
@@ -61,12 +65,19 @@ EXIT_HTTP_ERROR = 1
 EXIT_EXECUTION_CONFLICT = 2
 EXIT_APPROVAL_TIMEOUT = 3
 EXIT_UNEXPECTED_VERDICT = 4
+EXIT_REQUEST_ERROR = 5
 
 
 # ── Proposals (deterministic — no planner) ─────────────────────────────────────
 # The body mirrors exactly what app/adapters/liveops_adapter.py produces so the
 # backend policy pipeline sees the same normalised shape it already handles.
-def _normalised_proposal(tool: str, target: str, goal: str, session_id: str) -> dict[str, Any]:
+# ``description`` carries a meaningful natural-language summary of the action:
+# the policy pipeline's semantic intent verification reads payload.description
+# (app/policy/intent_verification.py), so an empty or tool-only description
+# produces meaningless embeddings and spurious WARN verdicts.
+def _normalised_proposal(
+    tool: str, target: str, goal: str, session_id: str, description: str
+) -> dict[str, Any]:
     return {
         "source": "liveops",
         "event_type": tool,
@@ -76,7 +87,7 @@ def _normalised_proposal(tool: str, target: str, goal: str, session_id: str) -> 
             "capability": tool,
             "target": target or "",
             "resource": target or "",
-            "description": f"{tool} {target}".strip(),
+            "description": description,
             "session_id": session_id,
         },
     }
@@ -92,6 +103,7 @@ SCENARIOS: dict[str, dict[str, str]] = {
         "tool": "stop_vm",
         "target": "dev-unused-01",
         "goal": _GOAL_DEV,
+        "description": "Stop unused development VM dev-unused-01 to reduce cost",
         "session_id": "agent-demo-dev",
     },
     "prod-review": {
@@ -99,6 +111,7 @@ SCENARIOS: dict[str, dict[str, str]] = {
         "tool": "stop_vm",
         "target": "prod-api-01",
         "goal": _GOAL_PROD,
+        "description": "Stop the production API virtual machine prod-api-01 to reduce cost.",
         "session_id": "agent-demo-prod",
     },
     "snapshot-block": {
@@ -106,6 +119,7 @@ SCENARIOS: dict[str, dict[str, str]] = {
         "tool": "delete_snapshot",
         "target": "prod-backup-latest",
         "goal": _GOAL_SNAPSHOT,
+        "description": "Delete the latest production backup snapshot prod-backup-latest.",
         "session_id": "agent-demo-snap",
     },
 }
@@ -113,9 +127,19 @@ SCENARIOS: dict[str, dict[str, str]] = {
 
 # ── HTTP helpers ───────────────────────────────────────────────────────────────
 
-def make_client(base_url: str, transport: httpx.BaseTransport | None = None) -> httpx.Client:
-    """Build an httpx client for the backend (optionally with a MockTransport)."""
-    return httpx.Client(base_url=base_url, timeout=30.0, transport=transport)
+def make_client(
+    base_url: str,
+    request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    transport: httpx.BaseTransport | None = None,
+) -> httpx.Client:
+    """Build an httpx client for the backend (optionally with a MockTransport).
+
+    ``request_timeout`` is the per-request HTTP timeout in seconds; MiniLM model
+    warm-up on the first evaluation call can take ~20s, so the default is 120s.
+    """
+    return httpx.Client(
+        base_url=base_url, timeout=request_timeout, transport=transport
+    )
 
 
 def _load_json(resp: httpx.Response) -> dict[str, Any]:
@@ -190,9 +214,28 @@ def _report_execution(resp: httpx.Response) -> None:
 
 # ── Scenario runners ───────────────────────────────────────────────────────────
 
+def _describe_request_error(exc: httpx.RequestError) -> str:
+    if isinstance(exc, httpx.TimeoutException):
+        return f"timed out after the configured request timeout: {exc}"
+    if isinstance(exc, httpx.ConnectError):
+        return f"could not connect to the backend: {exc}"
+    return f"request error: {exc}"
+
+
 def _execute_and_report(client: httpx.Client, event_id: int) -> int:
-    """Call /execute once. A 409 conflict is reported and NOT retried."""
-    resp = _execute(client, event_id)
+    """Call /execute once. A 409 conflict or a timeout is reported and NOT retried."""
+    try:
+        resp = _execute(client, event_id)
+    except httpx.TimeoutException as exc:
+        print("  execution : request timed out — outcome is UNKNOWN.")
+        print("             : the action may or may not have run; it is NOT retried.")
+        print("             : check the execution ledger before re-submitting.")
+        print("             :", _describe_request_error(exc))
+        return EXIT_REQUEST_ERROR
+    except httpx.RequestError as exc:
+        print("  execution : could not reach the backend — NOT retried.")
+        print("             :", _describe_request_error(exc))
+        return EXIT_REQUEST_ERROR
     if resp.status_code == 200:
         _report_execution(resp)
         return EXIT_OK
@@ -216,7 +259,12 @@ def _poll_human_decision(
     """Poll GET /api/decide/{event_id} until a human decision appears or timeout."""
     deadline = time.monotonic() + approval_timeout
     while time.monotonic() < deadline:
-        resp = _fetch_decision(client, event_id)
+        try:
+            resp = _fetch_decision(client, event_id)
+        except httpx.RequestError as exc:
+            print("  review    : decision fetch could not reach the backend.")
+            print("             :", _describe_request_error(exc))
+            return "<request-error>"
         if resp.status_code != 200:
             print("  review    : decision fetch FAILED — HTTP", resp.status_code)
             return "<http-error>"
@@ -242,9 +290,15 @@ def run_proposal(
         target=scenario["target"],
         goal=scenario["goal"],
         session_id=scenario["session_id"],
+        description=scenario["description"],
     )
 
-    resp = _submit_proposal(client, proposal)
+    try:
+        resp = _submit_proposal(client, proposal)
+    except httpx.RequestError as exc:
+        print("  submit    : could not reach the backend.")
+        print("             :", _describe_request_error(exc))
+        return EXIT_REQUEST_ERROR
     if resp.status_code != 200:
         body = _load_json(resp)
         print("  submit    : FAILED — HTTP", resp.status_code)
@@ -267,6 +321,8 @@ def run_proposal(
         if human == "rejected":
             print("  action    : rejected — NOT executing.")
             return EXIT_OK
+        if human == "<request-error>":
+            return EXIT_REQUEST_ERROR
         if human is None:
             print(
                 f"  action    : approval timed out after {approval_timeout:.1f}s — "
@@ -277,7 +333,12 @@ def run_proposal(
 
     if verdict == "BLOCK":
         print("  action    : BLOCK — never calling execution.")
-        state_resp = _fetch_state(client)
+        try:
+            state_resp = _fetch_state(client)
+        except httpx.RequestError as exc:
+            print("  verify    : could not reach the backend.")
+            print("             :", _describe_request_error(exc))
+            return EXIT_REQUEST_ERROR
         if state_resp.status_code != 200:
             print("  verify    : state fetch FAILED — HTTP", state_resp.status_code)
             return EXIT_HTTP_ERROR
@@ -300,7 +361,12 @@ def run_demo(
 ) -> int:
     """Reset the sandbox once, then walk all three scenarios."""
     print("=== LiveOps agent demo (deterministic scenarios; no planner) ===")
-    reset = _reset_state(client)
+    try:
+        reset = _reset_state(client)
+    except httpx.RequestError as exc:
+        print("  reset     : could not reach the backend.")
+        print("             :", _describe_request_error(exc))
+        return EXIT_REQUEST_ERROR
     if reset.status_code != 200:
         print("  reset     : FAILED — HTTP", reset.status_code)
         return EXIT_HTTP_ERROR
@@ -337,6 +403,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"backend base URL (default {DEFAULT_BASE_URL}; env AGENT_SENTINEL_URL)",
     )
     parser.add_argument(
+        "--request-timeout",
+        type=float,
+        default=float(
+            os.environ.get("AGENT_SENTINEL_REQUEST_TIMEOUT", DEFAULT_REQUEST_TIMEOUT)
+        ),
+        help=(
+            "per-request HTTP timeout in seconds "
+            f"(default {DEFAULT_REQUEST_TIMEOUT:.0f}; env AGENT_SENTINEL_REQUEST_TIMEOUT)"
+        ),
+    )
+    parser.add_argument(
         "--poll-interval",
         type=float,
         default=DEFAULT_POLL_INTERVAL,
@@ -360,7 +437,9 @@ def main(argv: list[str] | None = None, transport: httpx.BaseTransport | None = 
     the configured base URL.
     """
     args = _build_parser().parse_args(argv)
-    client = make_client(args.base_url, transport=transport)
+    client = make_client(
+        args.base_url, request_timeout=args.request_timeout, transport=transport
+    )
     try:
         if args.command == "demo":
             return run_demo(client, args.poll_interval, args.approval_timeout)
