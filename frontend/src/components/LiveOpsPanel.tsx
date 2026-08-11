@@ -1,0 +1,557 @@
+/**
+ * src/components/LiveOpsPanel.tsx
+ * ─────────────────────────────────
+ * Smallest browser-based LiveOps demonstration panel.
+ *
+ * The agent proposes one of three hard-coded cloud operations; Agent Sentinel
+ * evaluates it through the existing backend pipeline and the panel obeys the
+ * verdict:
+ *
+ *   - ALLOW           -> execute exactly once, refresh cloud state
+ *   - WARN            -> open the existing ApprovalModal; execute only if approved
+ *   - WARN approved   -> execute exactly once, refresh state
+ *   - WARN rejected   -> never execute
+ *   - BLOCK           -> never execute; protected resource stays unchanged
+ *
+ * No arbitrary tools/targets are ever submitted: the three scenarios are the
+ * only payloads this component can send.
+ */
+import React, { useCallback, useEffect, useState } from 'react'
+import {
+  evaluateEvent,
+  executeLiveOps,
+  getLiveOpsExecution,
+  getLiveOpsState,
+  resetLiveOps,
+  type DecisionRecord,
+  type EventRecord,
+  type HumanDecision,
+  type LiveOpsExecutionRecord,
+  type LiveOpsState,
+  type Verdict,
+} from '../lib/api'
+import { ApprovalModal } from './ApprovalModal'
+
+type ScenarioKey = 'dev' | 'prod' | 'snapshot'
+
+type OutcomeLabel =
+  | 'ALLOWED AND EXECUTED'
+  | 'HUMAN REVIEW REQUIRED'
+  | 'APPROVED AND EXECUTED'
+  | 'REJECTED, NOT EXECUTED'
+  | 'BLOCKED, RESOURCE UNCHANGED'
+  | 'ALREADY PROCESSED'
+
+interface RunResult {
+  goal: string
+  proposed: string
+  verdict: Verdict
+  risk: number
+  reasons: string[]
+  humanDecision: HumanDecision | null
+  executionStatus: string | null
+  outcome: OutcomeLabel
+  observed: string
+}
+
+interface ScenarioDef {
+  key: ScenarioKey
+  label: string
+  event_type: string
+  target: string
+  original_goal: string
+  description: string
+  resourceKind: string
+}
+
+const SCENARIOS: ScenarioDef[] = [
+  {
+    key: 'dev',
+    label: 'Stop development VM',
+    event_type: 'stop_vm',
+    target: 'dev-unused-01',
+    original_goal: 'Clean unused development resources to reduce cost.',
+    description: 'Stop unused development VM dev-unused-01 to reduce cost',
+    resourceKind: 'Development VM',
+  },
+  {
+    key: 'prod',
+    label: 'Stop production VM',
+    event_type: 'stop_vm',
+    target: 'prod-api-01',
+    original_goal: 'Clean unused production resources to reduce cost.',
+    description: 'Stop the production API virtual machine prod-api-01 to reduce cost.',
+    resourceKind: 'Production VM',
+  },
+  {
+    key: 'snapshot',
+    label: 'Delete protected snapshot',
+    event_type: 'delete_snapshot',
+    target: 'prod-backup-latest',
+    original_goal: 'Remove stale production backup snapshots.',
+    description: 'Delete the latest production backup snapshot prod-backup-latest.',
+    resourceKind: 'Production backup snapshot',
+  },
+]
+
+function freshSessionId(): string {
+  return `liveops-ui-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function friendlyError(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { detail?: string } }; message?: string }
+    if (typeof e.response?.data?.detail === 'string') {
+      return e.response.data.detail
+    }
+    if (typeof e.message === 'string') {
+      return e.message
+    }
+  }
+  return 'Something went wrong while talking to Agent Sentinel.'
+}
+
+function isHttpError(err: unknown, status: number): boolean {
+  return (
+    !!err &&
+    typeof err === 'object' &&
+    (err as { response?: { status?: number } }).response?.status === status
+  )
+}
+
+function describeObserved(state: LiveOpsState | null, target: string): string {
+  if (!state) return ''
+  const vm = state.vms.find((v) => v.id === target)
+  if (vm) return `vm ${vm.id} is ${vm.state}`
+  const snap = state.snapshots.find((s) => s.id === target)
+  if (snap) return `snapshot ${snap.id} is present`
+  return `${target} is absent from state`
+}
+
+export const LiveOpsPanel: React.FC = () => {
+  const [state, setState] = useState<LiveOpsState | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<ScenarioKey | null>(null)
+  const [restoring, setRestoring] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<RunResult | null>(null)
+  const [reviewTarget, setReviewTarget] = useState<{
+    event: EventRecord
+    decision: DecisionRecord
+  } | null>(null)
+
+  const refreshState = useCallback(async (): Promise<LiveOpsState | null> => {
+    try {
+      const s = await getLiveOpsState()
+      setState(s)
+      return s
+    } catch (err) {
+      setError(friendlyError(err))
+      return null
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const s = await getLiveOpsState()
+        if (!cancelled) setState(s)
+      } catch (err) {
+        if (!cancelled) setError(friendlyError(err))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ── Execution helper (ALLOW / approved WARN) ─────────────────────────────
+  const runExecution = useCallback(
+    async (
+      event: EventRecord,
+      decision: DecisionRecord,
+      scenario: ScenarioDef,
+      outcome: OutcomeLabel,
+    ): Promise<void> => {
+      try {
+        const exec = await executeLiveOps(event.id)
+        const s = await refreshState()
+        setResult({
+          goal: scenario.original_goal,
+          proposed: `${scenario.event_type}(${scenario.target})`,
+          verdict: decision.verdict,
+          risk: decision.risk_score,
+          reasons: decision.reasons ?? [],
+          humanDecision: decision.human_decision ?? null,
+          executionStatus: exec.status,
+          outcome,
+          observed: describeObserved(s, scenario.target),
+        })
+      } catch (err) {
+        if (isHttpError(err, 409)) {
+          // Exactly-once guard: already processed. Never retry.
+          const s = await refreshState()
+          setResult({
+            goal: scenario.original_goal,
+            proposed: `${scenario.event_type}(${scenario.target})`,
+            verdict: decision.verdict,
+            risk: decision.risk_score,
+            reasons: decision.reasons ?? [],
+            humanDecision: decision.human_decision ?? null,
+            executionStatus: 'already processed (409)',
+            outcome: 'ALREADY PROCESSED',
+            observed: describeObserved(s, scenario.target),
+          })
+        } else {
+          setError(friendlyError(err))
+        }
+      }
+    },
+    [refreshState],
+  )
+
+  // ── Scenario runner ───────────────────────────────────────────────────────
+  const runScenario = useCallback(
+    async (scenario: ScenarioDef) => {
+      setBusy(scenario.key)
+      setError(null)
+      setResult(null)
+      try {
+        const resp = await evaluateEvent({
+          source: 'liveops',
+          event_type: scenario.event_type,
+          original_goal: scenario.original_goal,
+          payload: {
+            tool: scenario.event_type,
+            capability: scenario.event_type,
+            target: scenario.target,
+            resource: scenario.target,
+            description: scenario.description,
+            session_id: freshSessionId(),
+          },
+        })
+        const { event, decision } = resp
+
+        if (decision.verdict === 'ALLOW') {
+          await runExecution(event, decision, scenario, 'ALLOWED AND EXECUTED')
+        } else if (decision.verdict === 'WARN') {
+          setResult({
+            goal: scenario.original_goal,
+            proposed: `${scenario.event_type}(${scenario.target})`,
+            verdict: 'WARN',
+            risk: decision.risk_score,
+            reasons: decision.reasons ?? [],
+            humanDecision: null,
+            executionStatus: null,
+            outcome: 'HUMAN REVIEW REQUIRED',
+            observed: describeObserved(state, scenario.target),
+          })
+          setReviewTarget({ event, decision })
+        } else if (decision.verdict === 'BLOCK') {
+          const s = await refreshState()
+          setResult({
+            goal: scenario.original_goal,
+            proposed: `${scenario.event_type}(${scenario.target})`,
+            verdict: 'BLOCK',
+            risk: decision.risk_score,
+            reasons: decision.reasons ?? [],
+            humanDecision: null,
+            executionStatus: null,
+            outcome: 'BLOCKED, RESOURCE UNCHANGED',
+            observed: describeObserved(s, scenario.target),
+          })
+        }
+      } catch (err) {
+        setError(friendlyError(err))
+      } finally {
+        setBusy(null)
+      }
+    },
+    [runExecution, refreshState, state],
+  )
+
+  // ── ApprovalModal result (approved -> execute once; rejected -> never) ────
+  const handleDecisionSubmitted = useCallback(
+    async (eventId: number, newDecision: DecisionRecord) => {
+      const scenario = SCENARIOS.find((s) => s.target === reviewTarget?.event?.payload?.target)
+      setReviewTarget(null)
+      if (!scenario) return
+
+      if (newDecision.human_decision === 'approved') {
+        const syntheticEvent: EventRecord = reviewTarget!.event
+        await runExecution(
+          syntheticEvent,
+          newDecision,
+          scenario,
+          'APPROVED AND EXECUTED',
+        )
+      } else {
+        // Rejected — never execute. Query the ledger if the backend recorded it.
+        let execStatus: string | null = null
+        try {
+          const exec = await getLiveOpsExecution(eventId)
+          execStatus = exec.status
+        } catch {
+          /* no ledger row recorded — still fine, nothing executed */
+        }
+        const s = await refreshState()
+        setResult({
+          goal: scenario.original_goal,
+          proposed: `${scenario.event_type}(${scenario.target})`,
+          verdict: 'WARN',
+          risk: newDecision.risk_score,
+          reasons: newDecision.reasons ?? [],
+          humanDecision: 'rejected',
+          executionStatus: execStatus,
+          outcome: 'REJECTED, NOT EXECUTED',
+          observed: describeObserved(s, scenario.target),
+        })
+      }
+    },
+    [refreshState, reviewTarget, runExecution],
+  )
+
+  // ── Restore Demo State ────────────────────────────────────────────────────
+  const handleRestore = useCallback(async () => {
+    setRestoring(true)
+    setError(null)
+    setResult(null)
+    try {
+      const s = await resetLiveOps()
+      setState(s)
+    } catch (err) {
+      setError(friendlyError(err))
+    } finally {
+      setRestoring(false)
+    }
+  }, [])
+
+  const vmState = (id: string): string =>
+    state?.vms.find((v) => v.id === id)?.state ?? 'unknown'
+
+  const snapshotPresent = state?.snapshots.some((s) => s.id === 'prod-backup-latest') ?? false
+
+  const outcomeStyles: Record<OutcomeLabel, string> = {
+    'ALLOWED AND EXECUTED': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    'APPROVED AND EXECUTED': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    'HUMAN REVIEW REQUIRED': 'bg-amber-100 text-amber-900 border-amber-300',
+    'REJECTED, NOT EXECUTED': 'bg-rose-100 text-rose-800 border-rose-300',
+    'BLOCKED, RESOURCE UNCHANGED': 'bg-rose-100 text-rose-800 border-rose-300',
+    'ALREADY PROCESSED': 'bg-sky-100 text-sky-800 border-sky-300',
+  }
+
+  return (
+    <section className="font-lexend theme-card p-6">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+        <div>
+          <h2 className="text-xl font-extrabold tracking-tight text-[#2A2B2E] uppercase">
+            Agent Sentinel LiveOps
+          </h2>
+          <p className="text-xs text-[#6B6C70] mt-1 max-w-xl">
+            An agent proposes a cloud operation. Agent Sentinel decides whether
+            it may run.
+          </p>
+        </div>
+        <button
+          onClick={handleRestore}
+          disabled={restoring || busy !== null}
+          className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {restoring ? '⏳ Restoring…' : '↺ Restore Demo State'}
+        </button>
+      </div>
+      <p className="text-[11px] text-neutral-400 mb-5">
+        Restore resets the demo cloud to its starting state. Audit and decision
+        history is retained.
+      </p>
+
+      {/* ── Simulated cloud state ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-sm font-bold text-neutral-800">dev-unused-01</span>
+          </div>
+          <div className="text-[11px] text-neutral-500">Development VM</div>
+          <div className="mt-2">
+            {loading ? (
+              <span className="text-xs text-neutral-400">loading…</span>
+            ) : (
+              <span
+                className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
+                  vmState('dev-unused-01') === 'running'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-neutral-200 text-neutral-700 border-neutral-300'
+                }`}
+              >
+                {vmState('dev-unused-01') === 'running' ? 'Running' : 'Stopped'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-sm font-bold text-neutral-800">prod-api-01</span>
+            <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-violet-100 text-violet-800 border border-violet-300">
+              🛡️ Protected
+            </span>
+          </div>
+          <div className="text-[11px] text-neutral-500">Production VM</div>
+          <div className="mt-2">
+            {loading ? (
+              <span className="text-xs text-neutral-400">loading…</span>
+            ) : (
+              <span
+                className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
+                  vmState('prod-api-01') === 'running'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-neutral-200 text-neutral-700 border-neutral-300'
+                }`}
+              >
+                {vmState('prod-api-01') === 'running' ? 'Running' : 'Stopped'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-sm font-bold text-neutral-800">prod-backup-latest</span>
+            <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-violet-100 text-violet-800 border border-violet-300">
+              🛡️ Protected
+            </span>
+          </div>
+          <div className="text-[11px] text-neutral-500">Production backup snapshot</div>
+          <div className="mt-2">
+            {loading ? (
+              <span className="text-xs text-neutral-400">loading…</span>
+            ) : (
+              <span
+                className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
+                  snapshotPresent
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-neutral-200 text-neutral-700 border-neutral-300'
+                }`}
+              >
+                {snapshotPresent ? 'Present' : 'Absent'}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Scenario buttons ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        {SCENARIOS.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => runScenario(s)}
+            disabled={busy !== null}
+            className="px-4 py-3 text-xs font-semibold rounded-2xl bg-neutral-900 hover:bg-neutral-700 text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-left"
+          >
+            {busy === s.key ? '⏳ Evaluating…' : `▶ ${s.label}`}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Error state ────────────────────────────────────────────────────── */}
+      {error && (
+        <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+          <span className="font-semibold">Something went wrong:</span>{' '}
+          {error}
+        </div>
+      )}
+
+      {/* ── Latest result ──────────────────────────────────────────────────── */}
+      {result && (
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+          <span
+            className={`inline-block px-3 py-1 text-xs font-extrabold uppercase tracking-wider rounded-full border ${outcomeStyles[result.outcome]}`}
+          >
+            {result.outcome}
+          </span>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
+            <div>
+              <span className="text-neutral-400">Goal: </span>
+              <span className="text-neutral-800">{result.goal}</span>
+            </div>
+            <div>
+              <span className="text-neutral-400">Proposed action: </span>
+              <span className="font-mono text-neutral-800">{result.proposed}</span>
+            </div>
+            <div>
+              <span className="text-neutral-400">Verdict: </span>
+              <span
+                className={`font-semibold ${
+                  result.verdict === 'ALLOW'
+                    ? 'text-emerald-700'
+                    : result.verdict === 'WARN'
+                    ? 'text-amber-700'
+                    : 'text-rose-700'
+                }`}
+              >
+                {result.verdict}
+              </span>
+            </div>
+            <div>
+              <span className="text-neutral-400">Risk score: </span>
+              <span className="font-mono font-semibold text-neutral-800">
+                {(result.risk * 100).toFixed(1)}%
+              </span>
+            </div>
+            {result.humanDecision && (
+              <div>
+                <span className="text-neutral-400">Human decision: </span>
+                <span className="font-semibold text-neutral-800">
+                  {result.humanDecision === 'approved' ? 'Approved' : 'Rejected'}
+                </span>
+              </div>
+            )}
+            {result.executionStatus && (
+              <div>
+                <span className="text-neutral-400">Execution status: </span>
+                <span className="font-mono font-semibold text-neutral-800">
+                  {result.executionStatus}
+                </span>
+              </div>
+            )}
+            {result.observed && (
+              <div className="sm:col-span-2">
+                <span className="text-neutral-400">Observed resource state: </span>
+                <span className="font-semibold text-neutral-800">{result.observed}</span>
+              </div>
+            )}
+          </div>
+          {result.reasons.length > 0 && (
+            <details className="mt-3">
+              <summary className="text-xs text-neutral-500 hover:text-neutral-800 cursor-pointer select-none font-mono">
+                ▶ View evaluation reasons
+              </summary>
+              <ul className="mt-2 space-y-1 text-xs text-neutral-700 list-disc list-inside pl-1">
+                {result.reasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* ── Human review modal (reuses the existing ApprovalModal) ─────────── */}
+      {reviewTarget && (
+        <ApprovalModal
+          event={reviewTarget.event}
+          decision={reviewTarget.decision}
+          onClose={() => setReviewTarget(null)}
+          onDecisionSubmitted={handleDecisionSubmitted}
+        />
+      )}
+    </section>
+  )
+}
+
+export default LiveOpsPanel

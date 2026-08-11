@@ -16,7 +16,7 @@ const client = axios.create({
 
 export type Verdict = 'ALLOW' | 'WARN' | 'BLOCK'
 export type HumanDecision = 'approved' | 'rejected'
-export type EventSource = 'cursor' | 'n8n' | 'transaction'
+export type EventSource = 'cursor' | 'n8n' | 'transaction' | 'liveops'
 
 export interface EventRecord {
   id: number
@@ -100,5 +100,83 @@ export async function submitDecision(
 /** Unblock a BLOCK decision (human operator override). */
 export async function unblockAction(eventId: number): Promise<DecisionRecord> {
   const { data } = await client.post<DecisionRecord>(`/unblock/${eventId}`)
+  return data
+}
+
+// ── LiveOps types ──────────────────────────────────────────────────────────────
+
+export interface LiveOpsVm {
+  id: string
+  environment: string
+  state: string
+  protected: boolean
+}
+
+export interface LiveOpsSnapshot {
+  id: string
+  source_vm: string
+  environment: string
+  protected: boolean
+}
+
+export interface LiveOpsState {
+  vms: LiveOpsVm[]
+  snapshots: LiveOpsSnapshot[]
+}
+
+export type LiveOpsExecutionStatus =
+  | 'pending'
+  | 'executed'
+  | 'rejected'
+  | 'blocked'
+  | 'failed'
+
+export interface LiveOpsExecutionResult {
+  tool?: string
+  target?: string | null
+  vms?: Array<{ id: string; state: string }>
+  snapshots?: Array<{ id: string; source_vm?: string }>
+}
+
+export interface LiveOpsExecutionRecord {
+  id: number
+  event_id: number
+  tool: string
+  target: string | null
+  status: LiveOpsExecutionStatus
+  result: LiveOpsExecutionResult | null
+  executed_at: string | null
+  created_at: string
+}
+
+// ── LiveOps API calls ──────────────────────────────────────────────────────────
+
+/** Get the current simulated cloud state (never exposes filesystem paths). */
+export async function getLiveOpsState(): Promise<LiveOpsState> {
+  const { data } = await client.get<LiveOpsState>('/liveops/state')
+  return data
+}
+
+/** Restore the canonical simulated-cloud seed state (dev/demo only). */
+export async function resetLiveOps(): Promise<LiveOpsState> {
+  const { data } = await client.post<LiveOpsState>('/liveops/reset')
+  return data
+}
+
+/** Execute an ALLOW or human-approved WARN LiveOps event exactly once. */
+export async function executeLiveOps(eventId: number): Promise<LiveOpsExecutionRecord> {
+  const { data } = await client.post<LiveOpsExecutionRecord>(
+    `/liveops/execute/${eventId}`,
+  )
+  return data
+}
+
+/** Get the execution-ledger record for a LiveOps event. */
+export async function getLiveOpsExecution(
+  eventId: number,
+): Promise<LiveOpsExecutionRecord> {
+  const { data } = await client.get<LiveOpsExecutionRecord>(
+    `/liveops/execution/${eventId}`,
+  )
   return data
 }

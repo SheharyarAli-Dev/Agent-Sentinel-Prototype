@@ -23,6 +23,7 @@ import { ApprovalModal } from './components/ApprovalModal'
 import { BackgroundCanvas } from './components/BackgroundCanvas'
 import { FastNucesLogo } from './components/FastNucesLogo'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
+import { LiveOpsPanel } from './components/LiveOpsPanel'
 import { evaluateEvent, runRedTeam, submitDecision, type EventRecord, type DecisionRecord, type RedTeamReport } from './lib/api'
 
 export const App: React.FC = () => {
@@ -557,6 +558,9 @@ export const App: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* ── LiveOps Simulated Cloud Demo Panel ─────────────────────────── */}
+          <LiveOpsPanel />
 
           {/* Live Feed Component with 3-Column Toolbar Layout */}
           <LiveFeed
