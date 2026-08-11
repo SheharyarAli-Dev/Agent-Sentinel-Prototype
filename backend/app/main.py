@@ -25,6 +25,7 @@ from app.api.n8n_webhook import router as n8n_router
 from app.api.governance import router as governance_router
 from app.api.red_team import router as red_team_router
 from app.api.unblock import router as unblock_router
+from app.api.liveops import router as liveops_router
 from app.websocket.manager import manager
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ logger = logging.getLogger(__name__)
 # Import all ORM models so their metadata is registered before create_all().
 from app.models.event import EventORM       # noqa: F401
 from app.models.decision import DecisionORM  # noqa: F401
+from app.models.liveops_execution import LiveOpsExecutionORM  # noqa: F401
 
 Base.metadata.create_all(bind=engine)
 logger.info("Database tables created/verified.")
@@ -74,6 +76,7 @@ app.include_router(n8n_router)
 app.include_router(governance_router)
 app.include_router(red_team_router)
 app.include_router(unblock_router)
+app.include_router(liveops_router)
 
 
 # ── WebSocket endpoint ─────────────────────────────────────────────────────────
