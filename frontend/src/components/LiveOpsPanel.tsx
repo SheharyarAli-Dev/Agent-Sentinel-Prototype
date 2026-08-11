@@ -20,13 +20,11 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   evaluateEvent,
   executeLiveOps,
-  getLiveOpsExecution,
   getLiveOpsState,
   resetLiveOps,
   type DecisionRecord,
   type EventRecord,
   type HumanDecision,
-  type LiveOpsExecutionRecord,
   type LiveOpsState,
   type Verdict,
 } from '../lib/api'
@@ -289,14 +287,8 @@ export const LiveOpsPanel: React.FC = () => {
           'APPROVED AND EXECUTED',
         )
       } else {
-        // Rejected — never execute. Query the ledger if the backend recorded it.
-        let execStatus: string | null = null
-        try {
-          const exec = await getLiveOpsExecution(eventId)
-          execStatus = exec.status
-        } catch {
-          /* no ledger row recorded — still fine, nothing executed */
-        }
+        // Rejected — never execute. No execution-ledger row is expected (the
+        // backend only records one when /execute is called), so skip the lookup.
         const s = await refreshState()
         setResult({
           goal: scenario.original_goal,
@@ -305,7 +297,7 @@ export const LiveOpsPanel: React.FC = () => {
           risk: newDecision.risk_score,
           reasons: newDecision.reasons ?? [],
           humanDecision: 'rejected',
-          executionStatus: execStatus,
+          executionStatus: null,
           outcome: 'REJECTED, NOT EXECUTED',
           observed: describeObserved(s, scenario.target),
         })
