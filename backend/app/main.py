@@ -13,6 +13,8 @@ Wires together:
 from __future__ import annotations
 
 import logging
+import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +28,7 @@ from app.api.governance import router as governance_router
 from app.api.red_team import router as red_team_router
 from app.api.unblock import router as unblock_router
 from app.api.liveops import router as liveops_router
+from app.policy.semantic_similarity import get_semantic_model
 from app.websocket.manager import manager
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -34,6 +37,40 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+def prewarm_semantic_model() -> None:
+    """
+    Load the MiniLM semantic model at startup, but ONLY when the opt-in
+    environment variable AGENT_SENTINEL_PREWARM_SEMANTIC_MODEL=1 is set.
+
+    Used by the demo launcher (demo/scripts/start_demo.ps1) so the browser is
+    opened only after the model is ready. When the variable is absent, the
+    existing lazy-load behavior is preserved and no model is constructed here.
+
+    Loader failures are caught: a warning is logged and startup continues with
+    the lexical fallback (the same resilience the lazy path already provides).
+    """
+    if os.environ.get("AGENT_SENTINEL_PREWARM_SEMANTIC_MODEL") != "1":
+        return
+
+    logger.info("Prewarming semantic model...")
+    try:
+        get_semantic_model()
+    except Exception as exc:  # noqa: BLE001 - prewarm must never block startup
+        logger.warning(
+            "Semantic model prewarm failed (%s); continuing with lexical fallback.",
+            exc,
+        )
+        return
+    logger.info("Semantic model ready.")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """FastAPI startup: prewarm the semantic model when explicitly enabled."""
+    prewarm_semantic_model()
+    yield
 
 # ── Create tables ──────────────────────────────────────────────────────────────
 # Import all ORM models so their metadata is registered before create_all().
@@ -58,6 +95,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
