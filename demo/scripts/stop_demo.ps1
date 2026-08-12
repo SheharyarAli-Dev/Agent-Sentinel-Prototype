@@ -1,6 +1,8 @@
 # demo/scripts/stop_demo.ps1
 # Stops only the backend/frontend processes started by start_demo.ps1.
 # Uses PID files under demo/state and verifies the command line before killing.
+# Returns a nonzero exit code and prints STOP INCOMPLETE if a launcher-owned
+# process is still alive after the stop attempt.
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'demo_common.ps1')
@@ -10,8 +12,12 @@ $StateDir = Join-Path (Join-Path $RepoRoot 'demo') 'state'
 $BackendPidFile = Join-Path $StateDir 'backend.pid'
 $FrontendPidFile = Join-Path $StateDir 'frontend.pid'
 
+$LogFile = Initialize-DemoLog $RepoRoot 'stop'
+$script:stopIncomplete = $false
+
 Write-Host "=============================================================="
 Write-Host "  Agent Sentinel Demo - Stop"
+Write-Host "  Log:        $LogFile"
 Write-Host "=============================================================="
 
 function Stop-FromPidFile {
@@ -51,7 +57,8 @@ function Stop-FromPidFile {
     Start-Sleep -Milliseconds 500
     $stillRunning = Get-Process -Id $pidValue -ErrorAction SilentlyContinue
     if ($null -ne $stillRunning) {
-        Write-Fail "$Label may still be running (PID $pidValue). Close its window manually if needed."
+        Write-Fail "$Label is still running (PID $pidValue). Close its window manually if needed."
+        $script:stopIncomplete = $true
     }
     else {
         Write-Ok "$Label stopped (process tree)."
@@ -63,6 +70,7 @@ if (-not (Test-Path -LiteralPath $StateDir)) {
     Write-Info "No demo state directory found - nothing was started by this launcher."
     Write-Host ""
     Write-Ok "NOTHING TO STOP"
+    Write-Ok "Log written to: $LogFile"
     exit 0
 }
 
@@ -71,6 +79,15 @@ Stop-FromPidFile $FrontendPidFile 'Frontend' 'npm.cmd run dev'
 
 Write-Host ""
 Write-Host "=============================================================="
-Write-Host "  STOP COMPLETE" -ForegroundColor Green
-Write-Host "=============================================================="
-exit 0
+if ($script:stopIncomplete) {
+    Write-Host "  STOP INCOMPLETE - one or more processes could not be stopped." -ForegroundColor Red
+    Write-Host "=============================================================="
+    Write-Fail "Log written to: $LogFile"
+    exit 1
+}
+else {
+    Write-Host "  STOP COMPLETE" -ForegroundColor Green
+    Write-Host "=============================================================="
+    Write-Ok "Log written to: $LogFile"
+    exit 0
+}
