@@ -80,9 +80,21 @@ if (-not (Test-Path -LiteralPath $ModelCache)) {
 elseif (Test-Path -LiteralPath $VenvPython) {
     $env:HF_HUB_OFFLINE = '1'
     $env:TRANSFORMERS_OFFLINE = '1'
-    $mlOut = (& $VenvPython -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); print('load-ok')" 2>&1)
-    if ($LASTEXITCODE -eq 0) { Write-Ok "loads offline : $((($mlOut | Out-String).Trim()))" }
-    else { Write-Fail "cache exists but model failed to load offline ($(($mlOut | Out-String).Trim()))"; $ready = $false }
+    # stderr holds only expected noise (weight-loading progress bars, library
+    # warnings). Redirect it to a temp file so it never surfaces as a PowerShell
+    # NativeCommandError; a genuine Python failure is still detected via exit code.
+    $mlErrFile = Join-Path $env:TEMP ("verify_minilm_err_{0}.txt" -f [guid]::NewGuid().ToString('N'))
+    $mlOut = (& $VenvPython -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); print('load-ok')" 2> $mlErrFile)
+    $mlCode = $LASTEXITCODE
+    if ($mlCode -eq 0) {
+        Write-Ok "MiniLM loads offline from cache."
+    }
+    else {
+        $mlErrText = if (Test-Path -LiteralPath $mlErrFile) { (Get-Content -LiteralPath $mlErrFile -Raw).Trim() } else { $mlOut }
+        Write-Fail "cache exists but model failed to load offline: $mlErrText"
+        $ready = $false
+    }
+    Remove-Item -LiteralPath $mlErrFile -Force -ErrorAction SilentlyContinue
 }
 else { Write-Fail "venv missing - cannot check."; $ready = $false }
 
