@@ -57,3 +57,7 @@ Thumbs.db
 # Logs
 *.log
 backend/data/liveops_runtime_state.json
+
+# Demo runtime state and logs (never commit PID files or launcher logs)
+demo/state/
+demo/logs/
