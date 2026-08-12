@@ -2,6 +2,9 @@
 
 Middleware system that intercepts AI agent actions, evaluates their risk before execution, and returns **ALLOW / WARN / BLOCK** decisions with suggested fixes and a plain-language explanation.
 
+> **Windows one-click demo:** see [`demo/README.md`](demo/README.md) for
+> `setup_demo.bat`, `start_demo.bat`, `stop_demo.bat`, and `verify_demo.bat`.
+
 ## Three Use Cases
 
 | Use Case | Adapter | Modules |
