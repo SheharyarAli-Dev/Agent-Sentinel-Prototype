@@ -268,6 +268,6 @@ Tests: 70 passing. New suite: `test_advanced_security_modules.py`.
   of adversarial attacks through the live pipeline and reports defense coverage.
   Current coverage: **100% (11/11 attacks defended)**. A "Run Red-Team Self-Test"
   button on the dashboard shows coverage live.
-
+16 Modules in total
 The system now implements **16 modules** end-to-end. Tests: **77 passing**
 (new suite `test_roadmap_modules.py`).
