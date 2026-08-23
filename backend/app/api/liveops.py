@@ -63,12 +63,12 @@ from sqlalchemy.orm import Session
 from app.adapters.liveops_adapter import ALLOWED_TOOLS
 from app.database import get_db
 from app.models.decision import DecisionORM
-from app.models.event import EventORM
+from app.models.event import EventCreate, EventORM
 from app.models.liveops_execution import (
     LiveOpsExecutionORM,
     LiveOpsExecutionResponse,
 )
-from app.models.operation import OperationORM, update_operation_state
+from app.models.operation import OperationORM, update_operation_state, verify_outcome, OutcomeVerificationResult, build_canonical_action, compute_action_fingerprint, verify_outcome, OutcomeVerificationResult
 from app.sandbox.simulated_cloud import SimulatedCloud
 
 logger = logging.getLogger(__name__)
@@ -376,12 +376,24 @@ async def execute_liveops_action(
         if operation is None:
             # Operation should always exist if decision exists
             logger.warning("No operation found for event %d, creating minimal record", event_id)
+            # Build a minimal canonical action for legacy operations
+            from app.models.operation import build_canonical_action
+            legacy_event = EventCreate(
+                source=event.source,
+                event_type=event.event_type,
+                payload=json.loads(event.payload) if isinstance(event.payload, str) else event.payload,
+                original_goal=event.original_goal,
+            )
+            canonical = build_canonical_action(legacy_event)
+            canonical_json = canonical.to_canonical_json()
+            fingerprint = compute_action_fingerprint(canonical)
+            
             operation = OperationORM(
                 operation_id=f"op-legacy-{event_id}",
                 source=event.source,
                 event_id=event_id,
-                canonical_action_json="{}",
-                action_fingerprint="legacy",
+                canonical_action_json=canonical_json,
+                action_fingerprint=fingerprint,
                 lifecycle_state="approved",
             )
             db.add(operation)
@@ -477,8 +489,13 @@ async def execute_liveops_action(
     update_operation_state(db, operation, "executed")
     db.refresh(ledger)
 
-    logger.info("LiveOps event %d executed — tool=%s target=%s operation=%s",
-                event_id, tool, target, operation.operation_id)
+    # ── Authorized Outcome Verification ───────────────────────────────────────
+    cloud = get_cloud()
+    verification = verify_outcome(db, operation, cloud, ledger)
+
+    logger.info("LiveOps event %d executed — tool=%s target=%s operation=%s verification=%s",
+                event_id, tool, target, operation.operation_id, verification.status)
+    
     return LiveOpsExecutionResponse.model_validate(ledger)
 
 
@@ -506,3 +523,48 @@ async def get_liveops_execution(
             detail=f"No execution record found for event {event_id}.",
         )
     return LiveOpsExecutionResponse.model_validate(ledger)
+
+
+# ── Outcome Verification lookup ──────────────────────────────────────────────────
+
+@router.get(
+    "/outcome/{event_id}",
+    response_model=OutcomeVerificationResult,
+    summary="Get the authorized outcome verification result for a LiveOps event",
+    description=(
+        "Returns the outcome verification result for a LiveOps event, including "
+        "the verification status (VERIFIED, PARTIAL, MISMATCH, EXECUTION_FAILED, "
+        "OUTCOME_UNKNOWN), expected vs observed state, and any invariant violations."
+    ),
+)
+async def get_outcome_verification(
+    event_id: int,
+    db: Session = Depends(get_db),
+) -> OutcomeVerificationResult:
+    # Get the operation record
+    operation = (
+        db.query(OperationORM)
+        .filter(OperationORM.event_id == event_id)
+        .order_by(OperationORM.id.desc())
+        .first()
+    )
+    if operation is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No operation found for event {event_id}.",
+        )
+
+    # Get the execution record
+    execution_record = db.scalar(
+        select(LiveOpsExecutionORM).where(LiveOpsExecutionORM.event_id == event_id)
+    )
+    if execution_record is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No execution record found for event {event_id}.",
+        )
+
+    # Perform verification
+    cloud = get_cloud()
+    verification = verify_outcome(db, operation, cloud, execution_record)
+    return verification

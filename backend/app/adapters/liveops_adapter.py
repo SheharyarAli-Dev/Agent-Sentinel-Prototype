@@ -89,6 +89,10 @@ def normalise_liveops_event(raw_payload: dict) -> EventCreate:
         "session_id": str(session_id).strip(),
     }
 
+    # Include expected_outcome if provided in the raw payload
+    if "expected_outcome" in raw_payload:
+        payload["expected_outcome"] = raw_payload["expected_outcome"]
+
     return EventCreate(
         source="liveops",
         event_type=tool,

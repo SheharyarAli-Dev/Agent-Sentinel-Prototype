@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -27,6 +28,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
 from app.models.event import EventCreate
+
 
 # ── Canonical lifecycle states ───────────────────────────────────────────────────
 OperationLifecycle = Literal[
@@ -40,10 +42,45 @@ OperationLifecycle = Literal[
     "failed",       # Execution failed
 ]
 
+
 # ── Canonical action schema for fingerprinting ───────────────────────────────────
 # The canonical representation includes only the semantically relevant fields
 # that define the action's identity. Volatile fields (timestamps, request IDs,
 # session IDs, auto-generated IDs) are EXCLUDED from the fingerprint.
+
+class ExpectedOutcome(BaseModel):
+    """
+    Expected outcome for authorized outcome verification.
+
+    This defines what the system expects to observe after a successful execution
+    within the bounded simulated LiveOps model. This is NOT a generic cloud
+    reconciliation — it is bounded to the supported simulated LiveOps model.
+    """
+    # Target resource that should be affected
+    target_resource: str
+
+    # Expected state transition (e.g., "running" -> "stopped", "present" -> "absent")
+    allowed_state_transition: Optional[str] = None
+
+    # Permitted mutations on the target resource (e.g., ["state", "metadata"])
+    permitted_mutations: list[str] = Field(default_factory=list)
+
+    # Protected-resource invariants that must remain unchanged
+    protected_invariants: list[str] = Field(default_factory=list)
+
+    # Expected final state of the target resource (for exact matching)
+    expected_final_state: Optional[dict[str, Any]] = None
+
+    def to_canonical_json(self) -> str:
+        """Serialize to canonical JSON for fingerprinting."""
+        # Sort keys for deterministic serialization
+        return json.dumps(
+            self.model_dump(exclude_none=True, mode="json"),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+
 
 class CanonicalAction(BaseModel):
     """
@@ -61,6 +98,9 @@ class CanonicalAction(BaseModel):
     original_goal: Optional[str] = None
     expected_effect: Optional[str] = None  # Human-readable expected outcome
 
+    # Expected outcome verification fields (bounded to simulated LiveOps model)
+    expected_outcome: Optional["ExpectedOutcome"] = None
+
     def to_canonical_json(self) -> str:
         """Serialize to canonical JSON for fingerprinting."""
         # Sort keys for deterministic serialization
@@ -70,6 +110,72 @@ class CanonicalAction(BaseModel):
             separators=(",", ":"),
             ensure_ascii=True,
         )
+
+
+class ExpectedOutcome(BaseModel):
+    """
+    Expected outcome for authorized outcome verification.
+
+    This defines what the system expects to observe after a successful execution
+    within the bounded simulated LiveOps model. This is NOT a generic cloud
+    reconciliation — it is bounded to the supported simulated LiveOps model.
+    """
+    # Target resource that should be affected
+    target_resource: str
+
+    # Expected state transition (e.g., "running" -> "stopped", "present" -> "absent")
+    allowed_state_transition: Optional[str] = None
+
+    # Permitted mutations on the target resource (e.g., ["state", "metadata"])
+    permitted_mutations: list[str] = Field(default_factory=list)
+
+    # Protected-resource invariants that must remain unchanged
+    protected_invariants: list[str] = Field(default_factory=list)
+
+    # Expected final state of the target resource (for exact matching)
+    expected_final_state: Optional[dict[str, Any]] = None
+
+    def to_canonical_json(self) -> str:
+        """Serialize to canonical JSON for fingerprinting."""
+        # Sort keys for deterministic serialization
+        return json.dumps(
+            self.model_dump(exclude_none=True, mode="json"),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+
+
+# ── Outcome Verification Models ───────────────────────────────────────────────────
+
+class VerificationStatus(str, Enum):
+    """Outcome verification status (bounded to simulated LiveOps model)."""
+    VERIFIED = "VERIFIED"           # Observed matches expected exactly
+    PARTIAL = "PARTIAL"             # Partial match (some invariants hold, some mutations permitted)
+    MISMATCH = "MISMATCH"           # Observed does not match expected
+    EXECUTION_FAILED = "EXECUTION_FAILED"  # Sandbox operation raised an exception
+    OUTCOME_UNKNOWN = "OUTCOME_UNKNOWN"    # Could not determine outcome
+
+
+class OutcomeVerificationResult(BaseModel):
+    """
+    Result of authorized outcome verification.
+
+    Bounded to the supported simulated LiveOps model - not a generic cloud
+    reconciliation.
+    """
+    status: VerificationStatus
+    operation_id: str
+    action_fingerprint: str
+    event_id: int
+    expected_outcome: Optional[ExpectedOutcome] = None
+    observed_state: Optional[dict[str, Any]] = None
+    invariant_violations: list[str] = Field(default_factory=list)
+    permitted_mutations_observed: list[str] = Field(default_factory=list)
+    unexpected_mutations: list[str] = Field(default_factory=list)
+    verified_at: datetime
+    execution_record_id: Optional[int] = None
+    human_review_id: Optional[int] = None  # Decision ID if human review was involved
 
 
 def build_canonical_action(event: EventCreate, agent_identity: Optional[str] = None) -> CanonicalAction:
@@ -114,6 +220,11 @@ def build_canonical_action(event: EventCreate, agent_identity: Optional[str] = N
             expected_effect = str(payload[key])
             break
 
+    # Expected outcome verification (only for LiveOps events with expected outcome data)
+    expected_outcome = None
+    if event.source == "liveops" and payload.get("expected_outcome"):
+        expected_outcome = ExpectedOutcome.model_validate(payload["expected_outcome"])
+
     return CanonicalAction(
         source=event.source,
         agent_identity=agent_id,
@@ -122,6 +233,7 @@ def build_canonical_action(event: EventCreate, agent_identity: Optional[str] = N
         normalized_parameters=normalized_params,
         original_goal=event.original_goal,
         expected_effect=expected_effect,
+        expected_outcome=expected_outcome,
     )
 
 
@@ -350,7 +462,8 @@ def update_operation_state(
     Valid transitions:
     - pending -> evaluated (after policy evaluation)
     - evaluated -> approved/rejected/expired/blocked (human review or auto)
-    - approved -> executed/failed (LiveOps execution)
+    - approved -> executing/rejected/expired/blocked
+    - executing -> executed/failed
     - Any -> failed (on error)
 
     Invalid transitions raise HTTPException.
@@ -391,10 +504,160 @@ def update_operation_state(
         operation.execution_completed_at = datetime.now(timezone.utc)
     elif new_state == "approved" and not operation.execution_started_at:
         operation.execution_started_at = datetime.now(timezone.utc)
+    elif new_state == "executing":
+        operation.execution_started_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(operation)
     return operation
+
+
+# ── Outcome Verification Logic ────────────────────────────────────────────────────
+
+def verify_outcome(
+    db: Session,
+    operation: OperationORM,
+    cloud: "SimulatedCloud",
+    execution_record: "LiveOpsExecutionORM",
+) -> "OutcomeVerificationResult":
+    """
+    Verify the outcome of a LiveOps execution against the expected outcome.
+
+    This performs bounded outcome verification within the supported simulated
+    LiveOps model. It does NOT perform generic cloud reconciliation.
+
+    Returns an OutcomeVerificationResult with status:
+    - VERIFIED: Observed matches expected exactly
+    - PARTIAL: Partial match (some invariants hold, some mutations permitted)
+    - MISMATCH: Observed does not match expected
+    - EXECUTION_FAILED: Sandbox operation raised an exception
+    - OUTCOME_UNKNOWN: Could not determine outcome
+    """
+
+    verified_at = datetime.now(timezone.utc)
+
+    # If execution failed, return EXECUTION_FAILED
+    if execution_record.status == "failed":
+        return OutcomeVerificationResult(
+            status=VerificationStatus.EXECUTION_FAILED,
+            operation_id=operation.operation_id,
+            action_fingerprint=operation.action_fingerprint,
+            event_id=operation.event_id or 0,
+            expected_outcome=operation.get_canonical_action().expected_outcome,
+            observed_state=None,
+            invariant_violations=["Execution failed: " + (execution_record.result or {}).get("error", "Unknown error")],
+            verified_at=datetime.now(timezone.utc),
+            execution_record_id=execution_record.id,
+        )
+
+    # Get the canonical action to access expected outcome
+    canonical = operation.get_canonical_action()
+    expected = canonical.expected_outcome
+
+    if not expected:
+        # No expected outcome defined - cannot verify
+        return OutcomeVerificationResult(
+            status=VerificationStatus.OUTCOME_UNKNOWN,
+            operation_id=operation.operation_id,
+            action_fingerprint=operation.action_fingerprint,
+            event_id=operation.event_id or 0,
+            expected_outcome=None,
+            observed_state=None,
+            invariant_violations=["No expected outcome defined for verification"],
+            verified_at=datetime.now(timezone.utc),
+            execution_record_id=execution_record.id,
+        )
+
+    # Get the observed state from the simulated cloud
+    observed_state = cloud.get_state()
+    target_resource = expected.target_resource
+
+    # Extract observed state for the target resource
+    observed_resource_state = None
+    for vm in observed_state.get("vms", []):
+        if vm["id"] == target:
+            observed_resource_state = vm
+            break
+
+    for snap in observed_state.get("snapshots", []):
+        if snap["id"] == target:
+            observed_resource_state = snap
+            break
+
+    if not observed_resource_state:
+        return OutcomeVerificationResult(
+            status=VerificationStatus.MISMATCH,
+            operation_id=operation.operation_id,
+            action_fingerprint=operation.action_fingerprint,
+            event_id=operation.event_id or 0,
+            expected_outcome=expected,
+            observed_state=None,
+            invariant_violations=[f"Target resource '{target_resource}' not found in observed state"],
+            verified_at=datetime.now(timezone.utc),
+            execution_record_id=execution_record.id,
+        )
+
+    # Verify protected invariants
+    invariant_violations = []
+    for invariant in expected.protected_invariants:
+        # Check if invariant is violated in observed state
+        if invariant == "protected" and observed_resource_state.get("protected") is not True:
+            invariant_violations.append(f"Protected invariant violated: resource should be protected")
+        elif invariant == "environment" and observed_resource_state.get("environment") != expected.expected_final_state.get("environment"):
+            invariant_violations.append(f"Environment invariant violated")
+
+    # Check permitted mutations
+    permitted_mutations_observed = []
+    unexpected_mutations = []
+
+    if expected.expected_final_state:
+        for key, expected_value in expected.expected_final_state.items():
+            observed_value = observed_resource_state.get(key)
+            if observed_value != expected_value:
+                if key in expected.permitted_mutations:
+                    permitted_mutations_observed.append(key)
+                else:
+                    unexpected_mutations.append(f"Unexpected mutation: {key} = {observed_value} (expected {expected_value})")
+
+    # Check allowed state transition
+    if expected.allowed_state_transition:
+        expected_from, expected_to = expected.allowed_state_transition.split("->")
+        expected_from = expected_from.strip()
+        expected_to = expected_to.strip()
+        current_state = observed_resource_state.get("state", "")
+        if current_state != expected_to:
+            invariant_violations.append(f"State transition mismatch: expected {expected_from} -> {expected_to}, got {current_state}")
+
+    # Determine overall status
+    if invariant_violations:
+        status_result = VerificationStatus.MISMATCH
+    elif unexpected_mutations:
+        status_result = VerificationStatus.PARTIAL
+    else:
+        status_result = VerificationStatus.VERIFIED
+
+    # Build observed state summary
+    target = expected.target_resource
+    observed_summary = {
+        "target": target,
+        "state": observed_resource_state.get("state"),
+        "protected": observed_resource_state.get("protected"),
+        "environment": observed_resource_state.get("environment"),
+    }
+
+    return OutcomeVerificationResult(
+        status=status_result,
+        operation_id=operation.operation_id,
+        action_fingerprint=operation.action_fingerprint,
+        event_id=operation.event_id or 0,
+        expected_outcome=expected,
+        observed_state=observed_summary,
+        invariant_violations=invariant_violations,
+        permitted_mutations_observed=permitted_mutations_observed,
+        unexpected_mutations=unexpected_mutations,
+        verified_at=datetime.now(timezone.utc),
+        execution_record_id=execution_record.id,
+    )
 
 
 # Import at bottom to avoid circular imports
