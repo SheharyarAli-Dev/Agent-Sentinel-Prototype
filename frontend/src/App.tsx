@@ -274,18 +274,18 @@ export const App: React.FC = () => {
   const statusBadge = (
     <div role="status" aria-live="polite">
       {status === 'connected' ? (
-        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] flex items-center gap-2 shadow-xs transition-all duration-300">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-pulse" />
+        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/50 flex items-center gap-2 shadow-xs transition-all duration-300">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           Live Feed Connected
         </span>
       ) : status === 'connecting' ? (
-        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] flex items-center gap-2 shadow-xs">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] animate-ping" />
+        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/50 flex items-center gap-2 shadow-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
           Connecting...
         </span>
       ) : (
-        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA] flex items-center gap-2 shadow-xs">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
+        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-rose-900/40 text-rose-300 border border-rose-700/50 flex items-center gap-2 shadow-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
           Disconnected
         </span>
       )}
@@ -293,12 +293,12 @@ export const App: React.FC = () => {
   )
 
   return (
-    <div className="min-h-screen bg-[#F8F7F2] text-[#0F0F0F] relative overflow-x-hidden selection:bg-neutral-900 selection:text-white">
+    <div className="min-h-screen bg-[#070B14] text-slate-100 relative overflow-x-hidden selection:bg-cyan-900/50 selection:text-cyan-100">
       {/* ── Full Screen Interactive Dots & Screen-Edge Circuit Background ─────── */}
       <BackgroundCanvas />
 
       {/* ── Top Header Navigation Bar ───────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-[#F8F7F2]/80 backdrop-blur-md px-6 lg:px-12 py-5 border-b border-transparent">
+      <header className="sticky top-0 z-40 bg-[#070B14]/80 backdrop-blur-md px-6 lg:px-12 py-5 border-b border-slate-800/50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* FAST NUCES Logo Top Left */}
           <FastNucesLogo />
@@ -314,20 +314,20 @@ export const App: React.FC = () => {
       <section className="relative z-10 max-w-5xl mx-auto px-6 pt-10 pb-16 text-center flex flex-col items-center justify-center min-h-[78vh]">
         {/* Top Pill Box with Reload Entrance & Hover Effect */}
         <div className="animate-hero-title-in [animation-delay:100ms]">
-          <div className="px-4.5 py-2 rounded-full bg-[#E7E6DF] border border-[#D8D7CE] text-[#333436] text-xs font-medium inline-flex items-center shadow-xs">
+          <div className="px-4.5 py-2 rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-300 text-xs font-medium inline-flex items-center shadow-xs">
             AI powered engineering with FYP Prototype
           </div>
         </div>
 
         {/* Main Title Heading with Smooth Reload Entrance & Hover Movement */}
-        <h1 className="mt-8 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#0B0C10] leading-[1.12] max-w-3xl animate-hero-title-in [animation-delay:300ms] transition-all duration-500">
+        <h1 className="mt-8 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-100 leading-[1.12] max-w-3xl animate-hero-title-in [animation-delay:300ms] transition-all duration-500">
           Agent Sentinel <br />
           Built for Real Impact <br />
           with Agent Action
         </h1>
 
         {/* Subtitle Paragraph with Smooth Fade Entrance */}
-        <p className="mt-6 text-sm sm:text-base text-[#4A4B4D] leading-relaxed max-w-2xl font-sans animate-hero-fade-in [animation-delay:500ms]">
+        <p className="mt-6 text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl font-sans animate-hero-fade-in [animation-delay:500ms]">
           An AI-native approach to building smarter, faster, and more scalable digital products.{' '}
           We design and build solutions that transform how businesses operate with An AI-native{' '}
           approach to securing autonomous decisions before by become real-world actions.
@@ -335,17 +335,17 @@ export const App: React.FC = () => {
 
 {/* Bottom Pill Box with Reload Entrance & Hover Effect */}
         <div className="mt-14 animate-hero-title-in [animation-delay:700ms]">
-          <div className="px-6 py-2.5 rounded-full bg-[#E5E4DD]/90 border border-[#D5D4CC] text-[#2C2D30] text-xs sm:text-sm font-medium shadow-xs inline-flex items-center">
+          <div className="px-6 py-2.5 rounded-full bg-slate-800/60 border border-cyan-800/40 text-slate-200 text-xs sm:text-sm font-medium shadow-xs inline-flex items-center">
             Shared Agent-Action Governance Core
           </div>
-          <div className="mt-2 text-xs text-[#6B6C70] max-w-2xl mx-auto leading-relaxed">
+          <div className="mt-2 text-xs text-slate-400 max-w-2xl mx-auto leading-relaxed">
             Policy &bull; Permissions &bull; Intent Evidence &bull; Human Review &bull; Controlled Execution &bull; Reliability &bull; Traceability
           </div>
           <div className="mt-3">
             <button
               onClick={handleRedTeam}
               disabled={redTeamLoading}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700/50 transition-colors disabled:opacity-50"
             >
               {redTeamLoading ? 'Running adversarial tests…' : '🎯 Run Red-Team Self-Test'}
             </button>
@@ -353,8 +353,8 @@ export const App: React.FC = () => {
               <span
                 className={`ml-3 text-xs font-mono px-2 py-1 rounded-md border ${
                   redTeam.coverage_pct === 100
-                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                    : 'text-amber-700 bg-amber-50 border-amber-200'
+                    ? 'text-emerald-400 bg-emerald-900/30 border-emerald-700/40'
+                    : 'text-amber-400 bg-amber-900/30 border-amber-700/40'
                 }`}
               >
                 Demo scenario detection: {redTeam.defended}/{redTeam.total_attacks} predefined cases met expected severity
@@ -363,21 +363,21 @@ export const App: React.FC = () => {
             )}
 
             {redTeam && (
-              <div className="mt-4 max-w-3xl rounded-2xl border border-neutral-200/80 bg-white/75 backdrop-blur-md shadow-sm overflow-hidden animate-slide-up">
-                <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+              <div className="mt-4 max-w-3xl rounded-2xl border border-slate-700/70 bg-slate-900/85 backdrop-blur-md shadow-sm overflow-hidden animate-slide-up">
+                <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Adversarial Test Results ({redTeam.total_attacks} attacks)
                   </span>
                   <button
                     onClick={() => setRedTeam(null)}
-                    className="text-xs text-neutral-400 hover:text-neutral-700"
+                    className="text-xs text-slate-400 hover:text-slate-200"
                   >
                     ✕ close
                   </button>
                 </div>
                 <div className="max-h-[52vh] overflow-y-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-neutral-50 text-neutral-500">
+                    <thead className="sticky top-0 bg-slate-800 text-slate-400">
                       <tr>
                         <th className="px-4 py-2 font-semibold">Attack</th>
                         <th className="px-3 py-2 font-semibold">Category</th>
@@ -390,33 +390,33 @@ export const App: React.FC = () => {
                       {redTeam.results.map((r, i) => (
                         <tr
                           key={i}
-                          className={`border-t border-neutral-100 ${
-                            r.defended ? 'bg-white' : 'bg-rose-50'
+                          className={`border-t border-slate-700/50 ${
+                            r.defended ? 'bg-slate-800/55' : 'bg-rose-950/30'
                           }`}
                         >
-                          <td className="px-4 py-2 text-neutral-800">{r.attack}</td>
-                          <td className="px-3 py-2 font-mono text-[11px] text-neutral-500">
+                          <td className="px-4 py-2 text-slate-200">{r.attack}</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-400">
                             {r.category}
                           </td>
-                          <td className="px-3 py-2 font-mono text-[11px] text-neutral-500">
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-400">
                             ≥ {r.expected_min}
                           </td>
                           <td
                             className={`px-3 py-2 font-mono text-[11px] font-semibold ${
                               r.actual === 'BLOCK'
-                                ? 'text-rose-700'
+                                ? 'text-rose-400'
                                 : r.actual === 'WARN'
-                                ? 'text-amber-700'
-                                : 'text-neutral-600'
+                                ? 'text-amber-400'
+                                : 'text-slate-300'
                             }`}
                           >
                             {r.actual}
                           </td>
                           <td className="px-3 py-2 text-center">
                             {r.defended ? (
-                              <span className="text-emerald-600 font-bold">✓ caught</span>
+                              <span className="text-emerald-400 font-bold">✓ caught</span>
                             ) : (
-                              <span className="text-rose-600 font-bold">✕ missed</span>
+                              <span className="text-rose-400 font-bold">✕ missed</span>
                             )}
                           </td>
                         </tr>
@@ -424,7 +424,7 @@ export const App: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-                <div className="px-4 py-2.5 border-t border-neutral-100 text-[11px] text-neutral-500 bg-neutral-50">
+                <div className="px-4 py-2.5 border-t border-slate-700/50 text-[11px] text-slate-400 bg-slate-800/55">
                   Each attack is fired through the live evaluation pipeline (same engine as the feed);
                   a pass means it was caught at or above the expected severity. This is a regression set,
                   not complete security coverage.
@@ -439,18 +439,18 @@ export const App: React.FC = () => {
       <AnalyticsPanel messages={messages} />
 
       {/* ── Second Page / Scrolled Area (100% Matched to User's Toolbar Screenshot) ── */}
-      <section className="relative z-10 bg-[#F8F7F2]/40 backdrop-blur-sm border-t border-neutral-200/60 px-6 lg:px-12 py-10 min-h-screen font-lexend">
+      <section className="relative z-10 bg-[#0B1220]/80 backdrop-blur-sm border-t border-slate-800/60 px-6 lg:px-12 py-10 min-h-screen font-lexend">
         <div className="max-w-7xl mx-auto space-y-8">
           
           {/* Header Bar: Dark Stadium Pill Center + Simulate Button Right */}
           <div className="relative z-50 flex flex-col md:flex-row items-center justify-between gap-4">
             
             {/* Center Dark Stadium Pill Container */}
-            <div className="w-full md:w-auto mx-auto px-10 py-5 rounded-[32px] bg-gradient-to-r from-[#E8E7E2] via-[#DFDDD6] to-[#E8E7E2] text-center shadow-md border border-[#D5D3CB] transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:from-[#DEDDD7] hover:via-[#D5D3CB] hover:to-[#DEDDD7]">
-              <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider text-[#2A2B2E] uppercase font-sans">
+            <div className="w-full md:w-auto mx-auto px-10 py-5 rounded-[32px] bg-gradient-to-r from-slate-800/80 via-slate-800/60 to-slate-800/80 text-center shadow-md border border-slate-700/50 transition-all duration-300 hover:shadow-lg">
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider text-slate-100 uppercase font-sans">
                 LIVE RISK EVALUATION STREAM
               </h2>
-              <p className="text-xs text-[#6B6C70] font-normal mt-1 max-w-lg mx-auto">
+              <p className="text-xs text-slate-400 font-normal mt-1 max-w-lg mx-auto">
                 Real-time agent action interception, rule evaluation, and human-in-the-loop review.
               </p>
             </div>
@@ -459,106 +459,106 @@ export const App: React.FC = () => {
             <div className="relative group md:absolute md:right-0 md:top-4">
               <button
                 disabled={isTriggering}
-                className="px-4 py-2.5 text-xs font-semibold rounded-full bg-gradient-to-r from-[#E8E7E2] to-[#DFDDD6] hover:from-[#D8D6CF] hover:to-[#CFCDC5] text-[#2A2B2E] border border-[#D5D3CB] transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md hover:scale-[1.03]"
+                className="px-4 py-2.5 text-xs font-semibold rounded-full bg-slate-800/60 hover:bg-slate-700/60 text-slate-200 border border-slate-700/50 transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md hover:scale-[1.03]"
               >
                 <span>⚡ Simulate Agent Event</span>
                 <span className="text-[10px]">▼</span>
               </button>
 
-              <div className="absolute right-0 top-full mt-2 w-64 py-2 bg-white border border-neutral-200 rounded-2xl shadow-xl hidden group-hover:block z-[100] animate-slide-up max-h-[70vh] overflow-y-auto">
-                <div className="px-3.5 py-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+              <div className="absolute right-0 top-full mt-2 w-64 py-2 bg-slate-900 border border-slate-700/70 rounded-2xl shadow-xl hidden group-hover:block z-[100] animate-slide-up max-h-[70vh] overflow-y-auto">
+                <div className="px-3.5 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   Select Demo Scenario
                 </div>
                 <button
                   onClick={() => triggerDemoEvent('valid_coffee')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-emerald-900/30 hover:text-emerald-300 transition-colors"
                 >
                   ✓ Valid Coffee ($4.50) → ALLOW
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('untrusted_coffee')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   ✕ Untrusted Merchant ($12.00) → BLOCK
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('over_limit_coffee')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-amber-900/30 hover:text-amber-300 transition-colors"
                 >
                   ⚠️ Over Limit ($75.00) → WARN
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('cursor_plan')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-amber-50 hover:text-amber-900 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-amber-900/30 hover:text-amber-300 transition-colors"
                 >
                   ⚡ Cursor O(n²) Plan → WARN
                 </button>
-                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-t border-neutral-100 mt-1">
+                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-t border-slate-700/50 mt-1">
                   Policy Engine (Module 1)
                 </div>
                 <button
                   onClick={() => triggerDemoEvent('policy_cap')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   🛑 Spend Ceiling $999 → BLOCK
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('policy_destructive')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   🛑 Destructive Shell (rm -rf /) → BLOCK
                 </button>
-                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-t border-neutral-100 mt-1">
+                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-t border-slate-700/50 mt-1">
                   Security Modules (Injection / Trajectory)
                 </div>
                 <button
                   onClick={() => triggerDemoEvent('context_injection')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   🧪 Prompt Injection in Document → BLOCK
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('exfil_chain')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   🔗 Exfiltration Chain (2 steps) → BLOCK
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('tool_poison')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   🧰 Poisoned MCP Tool → BLOCK
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('privilege')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   🔒 Privilege Violation (drop_table) → BLOCK
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('memory_poison')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   🧠 Memory Poisoning → BLOCK
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('multi_agent')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-rose-50 hover:text-rose-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-rose-900/30 hover:text-rose-300 transition-colors"
                 >
                   👥 Cross-Agent Escalation → BLOCK
                 </button>
-                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-t border-neutral-100 mt-1">
+                <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-t border-slate-700/50 mt-1">
                   Adaptive Modules (Predict / Learn)
                 </div>
                 <button
                   onClick={() => triggerDemoEvent('predictive')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-amber-50 hover:text-amber-900 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-amber-900/30 hover:text-amber-300 transition-colors"
                 >
                   🔮 Predictive Defence (early forecast) → WARN
                 </button>
                 <button
                   onClick={() => triggerDemoEvent('feedback_learning')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-emerald-900/30 hover:text-emerald-300 transition-colors"
                 >
                   🧠 Feedback Learning (3× approve → auto-clear)
                 </button>
@@ -590,9 +590,9 @@ export const App: React.FC = () => {
       )}
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
-      <footer className="relative z-10 bg-[#F8F7F2] border-t border-neutral-200/80 py-8 text-center text-xs text-neutral-500 font-sans">
-        <p className="font-semibold text-neutral-700">FAST NUCES — Agent Sentinel FYP Prototype</p>
-        <p className="mt-1 text-[11px] text-neutral-500">
+      <footer className="relative z-10 bg-[#070B14] border-t border-slate-800/60 py-8 text-center text-xs text-slate-500 font-sans">
+        <p className="font-semibold text-slate-300">FAST NUCES — Agent Sentinel FYP Prototype</p>
+        <p className="mt-1 text-[11px] text-slate-500">
           Middleware system for intercepting and evaluating AI agent risk before execution.
         </p>
       </footer>

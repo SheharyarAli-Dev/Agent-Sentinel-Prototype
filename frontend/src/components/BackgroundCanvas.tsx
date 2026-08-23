@@ -54,7 +54,7 @@ export const BackgroundCanvas: React.FC = () => {
     const draw = () => {
       ctx.clearRect(0, 0, width, height)
 
-      // Ambient warm radial gradient
+      // Ambient dark radial gradient
       const gradient = ctx.createRadialGradient(
         width / 2,
         height / 2,
@@ -63,9 +63,9 @@ export const BackgroundCanvas: React.FC = () => {
         height / 2,
         Math.max(width, height) / 1.05
       )
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.5)')
-      gradient.addColorStop(0.5, 'rgba(249, 248, 243, 0.3)')
-      gradient.addColorStop(1, 'rgba(240, 238, 228, 0.7)')
+      gradient.addColorStop(0, 'rgba(7, 11, 20, 0.6)')
+      gradient.addColorStop(0.5, 'rgba(11, 18, 32, 0.4)')
+      gradient.addColorStop(1, 'rgba(15, 23, 42, 0.7)')
       ctx.fillStyle = gradient
       ctx.fillRect(0, 0, width, height)
 
@@ -73,7 +73,7 @@ export const BackgroundCanvas: React.FC = () => {
       const mouse = mouseRef.current
       for (let x = 0; x <= width + spacing; x += spacing) {
         for (let y = 0; y <= height + spacing; y += spacing) {
-          let alpha = 0.28
+          let alpha = 0.18
           let r = baseRadius
 
           if (mouse.active) {
@@ -83,14 +83,14 @@ export const BackgroundCanvas: React.FC = () => {
 
             if (dist < effectRadius) {
               const factor = 1 - dist / effectRadius
-              alpha = 0.28 + factor * 0.68
+              alpha = 0.18 + factor * 0.55
               r = baseRadius + factor * 1.6
             }
           }
 
           ctx.beginPath()
           ctx.arc(x, y, r, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(30, 30, 30, ${alpha})`
+          ctx.fillStyle = `rgba(148, 163, 184, ${alpha})`
           ctx.fill()
         }
       }
@@ -119,7 +119,7 @@ export const BackgroundCanvas: React.FC = () => {
           viewBox="0 0 420 520"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full text-[#6E6F73]"
+          className="w-full h-full text-slate-700/40"
           preserveAspectRatio="none"
         >
           {/* Circuit line 1 */}
@@ -166,7 +166,7 @@ export const BackgroundCanvas: React.FC = () => {
           viewBox="0 0 420 520"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full text-[#6E6F73]"
+          className="w-full h-full text-slate-700/40"
           preserveAspectRatio="none"
         >
           {/* Circuit line 1 */}
@@ -208,7 +208,7 @@ export const BackgroundCanvas: React.FC = () => {
       </div>
 
       {/* Watermark sparkle accent icon */}
-      <div className="absolute right-[10%] bottom-[16%] opacity-25 text-neutral-600 animate-pulse-subtle">
+      <div className="absolute right-[10%] bottom-[16%] opacity-20 text-cyan-800/40 animate-pulse-subtle">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
         </svg>

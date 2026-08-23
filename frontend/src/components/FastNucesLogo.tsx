@@ -24,7 +24,7 @@ export const FastNucesLogo: React.FC = () => {
       </div>
 
       {/* FAST NUCES Brand Text */}
-      <span className="text-base font-extrabold tracking-tight text-[#0F0F0F] font-sans">
+      <span className="text-base font-extrabold tracking-tight text-slate-100 font-sans">
         FAST NUCES
       </span>
     </div>

@@ -12,18 +12,16 @@ export default {
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       colors: {
-        cream: {
-          50: '#FDFCF7',
-          100: '#F9F8F2',
-          200: '#F3F1E7',
-          300: '#EAE7D8',
-          400: '#D5D1BD',
-          500: '#BDB79D',
+        dark: {
+          bg: '#070B14',
+          surface: '#0B1220',
+          card: 'rgba(15, 23, 42, 0.85)',
+          nested: 'rgba(30, 41, 59, 0.55)',
         },
         pill: {
-          bg: '#E7E6DF',
-          border: '#D8D7CE',
-          text: '#2D2E30',
+          bg: 'rgba(30, 41, 59, 0.6)',
+          border: 'rgba(71, 85, 105, 0.5)',
+          text: '#e2e8f0',
         },
       },
       animation: {
