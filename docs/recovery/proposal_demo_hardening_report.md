@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-23  
 **Branch:** `feature/proposal-demo-hardening` (from `main` @ `39eecb0`)  
-**Final Commit:** `a1b2c3d4e5f6` (placeholder - to be filled after commit)
+**Final Commit:** `f61763f2a6dab9df91d3d4f58f96b7cb14ae1caf`
 
 ---
 

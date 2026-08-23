@@ -133,6 +133,7 @@ async def lifespan(_: FastAPI):
 from app.models.event import EventORM       # noqa: F401
 from app.models.decision import DecisionORM  # noqa: F401
 from app.models.liveops_execution import LiveOpsExecutionORM  # noqa: F401
+from app.models.operation import OperationORM  # noqa: F401
 
 Base.metadata.create_all(bind=engine)
 logger.info("Database tables created/verified.")

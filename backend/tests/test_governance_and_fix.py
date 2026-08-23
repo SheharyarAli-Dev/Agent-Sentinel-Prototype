@@ -12,29 +12,57 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.config import settings
 from app.main import app
-from app.database import SessionLocal, engine
+from app.database import get_db, Base
 from app.models.decision import DecisionORM
 from app.models.event import EventCreate, EventORM
 from app.policy.attve import clear_seen_transactions
 from app.policy.intent_verification import evaluate_intent
 
-client = TestClient(app)
+# ── In-memory SQLite for tests ─────────────────────────────────────────────────
+TEST_DATABASE_URL = "sqlite://"  # in-memory
+
+test_engine = create_engine(
+    TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+Base.metadata.create_all(bind=test_engine)
+
+
+def override_get_db():
+    db = TestSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture(autouse=True)
-def _reset_state():
-    """Clear ATTVE state and truncate tables before each test for isolation."""
-    clear_seen_transactions()
-    # Truncate tables to ensure clean state
-    from sqlalchemy import text
-    with SessionLocal() as db:
-        db.execute(text("DELETE FROM decisions"))
-        db.execute(text("DELETE FROM events"))
-        db.execute(text("DELETE FROM liveops_executions"))
-        db.commit()
+def _reset_test_db():
+    """Reset the test database before each test."""
+    # Clear dependency override first
+    if get_db in app.dependency_overrides:
+        del app.dependency_overrides[get_db]
+    # Recreate all tables
+    Base.metadata.drop_all(bind=test_engine)
+    Base.metadata.create_all(bind=test_engine)
+    # Re-apply override
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    # Cleanup
+    if get_db in app.dependency_overrides:
+        del app.dependency_overrides[get_db]
+
+
+client = TestClient(app)
 
 
 def _valid_coffee():
@@ -115,7 +143,8 @@ def test_every_decision_has_explanation():
 # ── Module 4 governance ─────────────────────────────────────────────────────────
 
 def test_audit_endpoint_returns_records():
-    client.post("/api/evaluate", json=_valid_coffee())
+    resp = client.post("/api/evaluate", json=_valid_coffee())
+    assert resp.status_code == 200
     resp = client.get("/api/audit")
     assert resp.status_code == 200
     body = resp.json()
@@ -167,11 +196,10 @@ def test_expired_warn_rejects_late_approval():
     """An expired WARN decision (EXPIRED) rejects late approval with 410."""
     from app.database import SessionLocal
     from app.models.decision import DecisionORM
+    from app.models.event import EventORM
 
-    # Create a WARN decision directly with an expired review_expires_at
-    db = SessionLocal()
+    db = TestSessionLocal()
     try:
-        from app.models.event import EventORM
         event = EventORM(
             source="transaction",
             event_type="purchase",
@@ -209,12 +237,11 @@ def test_expired_warn_rejects_late_approval():
 
 def test_expired_warn_rejects_late_rejection():
     """An expired WARN decision (EXPIRED) rejects late rejection with 410."""
-    from app.database import SessionLocal
     from app.models.decision import DecisionORM
+    from app.models.event import EventORM
 
-    db = SessionLocal()
+    db = TestSessionLocal()
     try:
-        from app.models.event import EventORM
         event = EventORM(
             source="transaction",
             event_type="purchase",
