@@ -299,7 +299,7 @@ items.forEach(({ event, decision }) => {
   }
 
   return (
-    <section className="relative z-10 px-6 lg:px-12 pb-6 font-lexend">
+    <section className="relative z-10 px-6 lg:px-12 pt-8 pb-6 font-lexend">
       {/* Panel Header — matches dashboard style */}
       <div
         className="flex items-center justify-between mb-4 cursor-pointer group"
@@ -307,7 +307,7 @@ items.forEach(({ event, decision }) => {
       >
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-          <h3 className="text-sm font-extrabold uppercase tracking-widest text-[#2A2B2E]">
+          <h3 className="text-lg sm:text-xl font-bold uppercase tracking-widest text-[#2A2B2E]">
             Analytics & Statistics
           </h3>
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E8E7E2] text-[#5C5D60] border border-[#D5D3CB]">
@@ -363,7 +363,7 @@ items.forEach(({ event, decision }) => {
           ].map((kpi) => (
             <div
               key={kpi.label}
-              className={`${kpi.bg} border ${kpi.border} rounded-2xl p-3.5 transition-all duration-300 hover:scale-[1.02] hover:shadow-sm`}
+              className={`${kpi.bg} border ${kpi.border} rounded-2xl p-3.5 transition-all duration-300 hover:shadow-md`}
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
                 {kpi.label}
@@ -413,12 +413,12 @@ items.forEach(({ event, decision }) => {
             <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
               Risk Score Trend
             </div>
-            <div className="text-[9px] text-neutral-400 mb-3">Last 20 events</div>
+            <div className="text-[10px] text-neutral-400 mb-3">Last 20 events</div>
             <div className="flex justify-center mt-2">
               <Sparkline scores={stats.recentRisks} />
             </div>
             {stats.recentRisks.length > 0 && (
-              <div className="flex justify-between text-[9px] text-neutral-400 mt-2 px-1">
+              <div className="flex justify-between text-[10px] text-neutral-400 mt-2 px-1">
                 <span>oldest</span>
                 <span>
                   latest:{' '}

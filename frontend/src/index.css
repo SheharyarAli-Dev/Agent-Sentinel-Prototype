@@ -18,7 +18,7 @@
   }
 
   body {
-    @apply bg-[#F9F8F3] text-[#0F0F0F] font-sans antialiased min-h-screen overflow-x-hidden;
+    @apply bg-[#F8F7F2] text-[#0F0F0F] font-sans antialiased min-h-screen overflow-x-hidden;
   }
 
   ::-webkit-scrollbar {
@@ -54,7 +54,7 @@
 
   /* Light Theme Glassmorphism card */
   .theme-card {
-    @apply bg-white/80 backdrop-blur-md border border-neutral-200/90 rounded-2xl shadow-sm transition-all duration-300;
+    @apply bg-white/75 backdrop-blur-md border border-neutral-200/80 rounded-2xl shadow-sm transition-all duration-300;
   }
 
   .theme-card-hover {

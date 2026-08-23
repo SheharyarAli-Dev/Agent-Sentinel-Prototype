@@ -359,7 +359,7 @@ export const App: React.FC = () => {
             )}
 
             {redTeam && (
-              <div className="mt-4 max-w-3xl rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden animate-slide-up">
+              <div className="mt-4 max-w-3xl rounded-2xl border border-neutral-200/80 bg-white/75 backdrop-blur-md shadow-sm overflow-hidden animate-slide-up">
                 <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                     Adversarial Test Results ({redTeam.total_attacks} attacks)
