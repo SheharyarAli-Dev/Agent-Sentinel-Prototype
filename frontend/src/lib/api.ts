@@ -180,3 +180,50 @@ export async function getLiveOpsExecution(
   )
   return data
 }
+
+// ── Outcome Verification types ──────────────────────────────────────────────
+
+export type VerificationStatus =
+  | 'VERIFIED'
+  | 'PARTIAL'
+  | 'MISMATCH'
+  | 'EXECUTION_FAILED'
+  | 'OUTCOME_UNKNOWN'
+
+export interface ExpectedOutcome {
+  target_resource: string
+  allowed_state_transition: string | null
+  permitted_mutations: string[]
+  protected_invariants: string[]
+  expected_final_state: Record<string, unknown> | null
+}
+
+export interface OutcomeVerificationResult {
+  status: VerificationStatus
+  operation_id: string
+  action_fingerprint: string
+  event_id: number
+  expected_outcome: ExpectedOutcome | null
+  observed_state: {
+    target: string
+    state: string | null
+    protected: boolean | null
+    environment: string | null
+  } | null
+  invariant_violations: string[]
+  permitted_mutations_observed: string[]
+  unexpected_mutations: string[]
+  verified_at: string
+  execution_record_id: number | null
+  human_review_id: number | null
+}
+
+/** Get the authorized outcome verification result for a LiveOps event. */
+export async function getOutcomeVerification(
+  eventId: number,
+): Promise<OutcomeVerificationResult> {
+  const { data } = await client.get<OutcomeVerificationResult>(
+    `/liveops/outcome/${eventId}`,
+  )
+  return data
+}

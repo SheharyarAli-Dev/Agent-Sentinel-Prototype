@@ -21,11 +21,13 @@ import {
   evaluateEvent,
   executeLiveOps,
   getLiveOpsState,
+  getOutcomeVerification,
   resetLiveOps,
   type DecisionRecord,
   type EventRecord,
   type HumanDecision,
   type LiveOpsState,
+  type OutcomeVerificationResult,
   type Verdict,
 } from '../lib/api'
 import { ApprovalModal } from './ApprovalModal'
@@ -137,6 +139,10 @@ export const LiveOpsPanel: React.FC = () => {
     event: EventRecord
     decision: DecisionRecord
   } | null>(null)
+  const [verification, setVerification] = useState<OutcomeVerificationResult | null>(null)
+  const [verificationLoading, setVerificationLoading] = useState(false)
+  const [verificationEventId, setVerificationEventId] = useState<number | null>(null)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
 
   const refreshState = useCallback(async (): Promise<LiveOpsState | null> => {
     try {
@@ -166,6 +172,28 @@ export const LiveOpsPanel: React.FC = () => {
     }
   }, [])
 
+  // ── Fetch outcome verification when an event ID is set ────────────────────
+  useEffect(() => {
+    if (verificationEventId === null) return
+    let cancelled = false
+    ;(async () => {
+      setVerificationLoading(true)
+      setVerificationError(null)
+      try {
+        const v = await getOutcomeVerification(verificationEventId)
+        if (!cancelled) setVerification(v)
+      } catch {
+        if (!cancelled) {
+          setVerification(null)
+          setVerificationError('Outcome evidence unavailable')
+        }
+      } finally {
+        if (!cancelled) setVerificationLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [verificationEventId])
+
   // ── Execution helper (ALLOW / approved WARN) ─────────────────────────────
   const runExecution = useCallback(
     async (
@@ -188,6 +216,7 @@ export const LiveOpsPanel: React.FC = () => {
           outcome,
           observed: describeObserved(s, scenario.target),
         })
+        setVerificationEventId(event.id)
       } catch (err) {
         if (isHttpError(err, 409)) {
           // Exactly-once guard: already processed. Never retry.
@@ -203,6 +232,7 @@ export const LiveOpsPanel: React.FC = () => {
             outcome: 'ALREADY PROCESSED',
             observed: describeObserved(s, scenario.target),
           })
+          setVerificationEventId(event.id)
         } else {
           setError(friendlyError(err))
         }
@@ -217,6 +247,9 @@ export const LiveOpsPanel: React.FC = () => {
       setBusy(scenario.key)
       setError(null)
       setResult(null)
+      setVerification(null)
+      setVerificationEventId(null)
+      setVerificationError(null)
       try {
         const resp = await evaluateEvent({
           source: 'liveops',
@@ -311,6 +344,9 @@ export const LiveOpsPanel: React.FC = () => {
     setRestoring(true)
     setError(null)
     setResult(null)
+    setVerification(null)
+    setVerificationEventId(null)
+    setVerificationError(null)
     try {
       const s = await resetLiveOps()
       setState(s)
@@ -518,6 +554,181 @@ export const LiveOpsPanel: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* ── Authorized Outcome Verification ─────────────────────────────── */}
+          {(verificationLoading || verification || verificationError) && (
+            <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-2">
+                Authorized Outcome Verification
+              </div>
+              {verificationLoading && !verification && (
+                <div className="text-xs text-neutral-400">Verifying outcome…</div>
+              )}
+              {verificationError && !verification && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  {verificationError}
+                </div>
+              )}
+              {verification && (
+                <div className="space-y-2.5 text-xs">
+                  {/* Operation */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                    <div>
+                      <span className="text-neutral-400">Operation ID: </span>
+                      <span className="font-mono text-neutral-800">{verification.operation_id}</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400">Fingerprint: </span>
+                      <span className="font-mono text-neutral-800">
+                        {verification.action_fingerprint.slice(0, 12)}…
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Expected outcome */}
+                  {verification.expected_outcome && (
+                    <div className="rounded-lg bg-white border border-neutral-200 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                        Expected
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                        <div>
+                          <span className="text-neutral-400">Target: </span>
+                          <span className="font-mono font-semibold text-neutral-800">
+                            {verification.expected_outcome.target_resource}
+                          </span>
+                        </div>
+                        {verification.expected_outcome.allowed_state_transition && (
+                          <div>
+                            <span className="text-neutral-400">Transition: </span>
+                            <span className="font-mono text-neutral-800">
+                              {verification.expected_outcome.allowed_state_transition}
+                            </span>
+                          </div>
+                        )}
+                        {verification.expected_outcome.expected_final_state && (
+                          <div className="sm:col-span-2">
+                            <span className="text-neutral-400">Final state: </span>
+                            <span className="font-mono text-neutral-800">
+                              {JSON.stringify(verification.expected_outcome.expected_final_state)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Observed state */}
+                  {verification.observed_state && (
+                    <div className="rounded-lg bg-white border border-neutral-200 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                        Observed
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                        <div>
+                          <span className="text-neutral-400">Target: </span>
+                          <span className="font-mono font-semibold text-neutral-800">
+                            {verification.observed_state.target}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-400">State: </span>
+                          <span className="font-mono text-neutral-800">
+                            {verification.observed_state.state ?? 'Not available'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-400">Protected: </span>
+                          <span className="font-mono text-neutral-800">
+                            {verification.observed_state.protected !== null
+                              ? String(verification.observed_state.protected)
+                              : 'Not available'}
+                          </span>
+                        </div>
+                        {verification.observed_state.environment !== null && (
+                          <div>
+                            <span className="text-neutral-400">Environment: </span>
+                            <span className="font-mono text-neutral-800">
+                              {verification.observed_state.environment}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verification status */}
+                  <div>
+                    <span className="text-neutral-400">Verification: </span>
+                    <span
+                      className={`font-extrabold uppercase tracking-wider ${
+                        verification.status === 'VERIFIED'
+                          ? 'text-emerald-700'
+                          : verification.status === 'PARTIAL'
+                          ? 'text-amber-700'
+                          : verification.status === 'MISMATCH'
+                          ? 'text-rose-700'
+                          : verification.status === 'EXECUTION_FAILED'
+                          ? 'text-rose-700'
+                          : 'text-neutral-500'
+                      }`}
+                    >
+                      {verification.status}
+                    </span>
+                  </div>
+
+                  {/* Evidence lists */}
+                  {(verification.invariant_violations.length > 0 ||
+                    verification.unexpected_mutations.length > 0 ||
+                    verification.permitted_mutations_observed.length > 0) && (
+                    <div className="rounded-lg bg-white border border-neutral-200 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                        Evidence
+                      </div>
+                      <div className="space-y-1.5">
+                        {verification.invariant_violations.length > 0 && (
+                          <div>
+                            <span className="text-[10px] font-semibold text-rose-700 uppercase">
+                              Invariant violations:
+                            </span>
+                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-rose-800">
+                              {verification.invariant_violations.map((v, i) => (
+                                <li key={i}>{v}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {verification.unexpected_mutations.length > 0 && (
+                          <div>
+                            <span className="text-[10px] font-semibold text-rose-700 uppercase">
+                              Unexpected mutations:
+                            </span>
+                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-rose-800">
+                              {verification.unexpected_mutations.map((m, i) => (
+                                <li key={i}>{m}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {verification.permitted_mutations_observed.length > 0 && (
+                          <div>
+                            <span className="text-[10px] font-semibold text-emerald-700 uppercase">
+                              Permitted mutations observed:
+                            </span>
+                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-emerald-800">
+                              {verification.permitted_mutations_observed.map((m, i) => (
+                                <li key={i}>{m}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {result.reasons.length > 0 && (
             <details className="mt-3">
               <summary className="text-xs text-neutral-500 hover:text-neutral-800 cursor-pointer select-none font-mono">
