@@ -47,5 +47,9 @@ class Settings(BaseSettings):
     # A plan touching more distinct files than this triggers a WARN.
     plan_file_scope_threshold: int = 20
 
+    # -- Review Timeout --------------------------------------------------------
+    # Seconds after which a pending WARN review expires (default: 1 hour).
+    review_timeout_seconds: int = 3600
+
 
 settings = Settings()

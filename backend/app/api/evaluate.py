@@ -15,11 +15,12 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models.decision import DecisionORM, DecisionResponse, EvaluateResponse
 from app.models.event import EventCreate, EventORM, EventResponse
@@ -75,6 +76,10 @@ async def evaluate(event_in: EventCreate, db: Session = Depends(get_db)) -> Eval
     _latency_ms = round((_time.perf_counter() - _t0) * 1000.0, 2)
 
     # ── 3. Persist decision ────────────────────────────────────────────────────
+    review_expires_at = None
+    if decision_data.verdict == "WARN":
+        review_expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.review_timeout_seconds)
+
     decision_orm = DecisionORM(
         event_id=event_orm.id,
         verdict=decision_data.verdict,
@@ -87,6 +92,7 @@ async def evaluate(event_in: EventCreate, db: Session = Depends(get_db)) -> Eval
         timestamp=datetime.now(timezone.utc),
         human_decision=None,
         human_timestamp=None,
+        review_expires_at=review_expires_at,
     )
     db.add(decision_orm)
     db.commit()

@@ -1,0 +1,261 @@
+# Evidence Manifest — Agent Sentinel
+
+**Generated:** 2026-08-23  
+**Branch:** main @ 39eecb01c38d5984f8c65d43f6b7d69de6abc396
+
+---
+
+## Git Log — Last 10 Commits
+
+```
+39eecb01c38d5984f8c65d43f6b7d69de6abc396 Merge pull request #4 from SheharyarAli-Dev/feature/demo-portability
+249e45d Harden demo launcher portability and diagnostics
+c78772d Merge pull request #3 from SheharyarAli-Dev/feature/demo-launcher
+442d9eb Clean demo verification output
+0f2dbf5 Add one-click Windows demo launcher
+f677b13 Update README.md
+de8e828 Add LiveOps browser demonstration panel
+47e33dd Add LiveOps browser demonstration panel
+f053198 Merge pull request #2 from SheharyarAli-Dev/feature/liveops-agent
+ba499f2 Ignore LiveOps runtime state
+```
+
+---
+
+## Clean Repository Tree
+
+Excludes: `.git`, `node_modules`, `venv`, `.venv`, `__pycache__`, `.pytest_cache`, caches, build outputs (`frontend/dist`), model files, large binaries (`project`, `project.zip`).
+
+```
+.
+├── backend
+│   ├── .env
+│   ├── .env.example
+│   ├── pytest.ini
+│   ├── requirements.txt
+│   ├── app
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   ├── main.py
+│   │   ├── adapters
+│   │   │   ├── __init__.py
+│   │   │   ├── cursor_adapter.py
+│   │   │   ├── liveops_adapter.py
+│   │   │   ├── n8n_adapter.py
+│   │   │   └── transaction_adapter.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   ├── decide.py
+│   │   │   ├── evaluate.py
+│   │   │   ├── governance.py
+│   │   │   ├── liveops.py
+│   │   │   ├── n8n_webhook.py
+│   │   │   ├── red_team.py
+│   │   │   └── unblock.py
+│   │   ├── models
+│   │   │   ├── __init__.py
+│   │   │   ├── decision.py
+│   │   │   ├── event.py
+│   │   │   └── liveops_execution.py
+│   │   ├── policy
+│   │   │   ├── __init__.py
+│   │   │   ├── attve.py
+│   │   │   ├── code_quality_patterns.py
+│   │   │   ├── context_integrity.py
+│   │   │   ├── explainability.py
+│   │   │   ├── feedback_learning.py
+│   │   │   ├── governance.py
+│   │   │   ├── intent_verification.py
+│   │   │   ├── least_privilege.py
+│   │   │   ├── memory_integrity.py
+│   │   │   ├── multi_agent.py
+│   │   │   ├── planning_verification.py
+│   │   │   ├── predictive_defence.py
+│   │   │   ├── red_team.py
+│   │   │   ├── rules_engine.py
+│   │   │   ├── semantic_similarity.py
+│   │   │   ├── sequential_behaviour.py
+│   │   │   ├── tool_integrity.py
+│   │   │   └── uncertainty.py
+│   │   ├── sandbox
+│   │   │   ├── __init__.py
+│   │   │   └── simulated_cloud.py
+│   │   └── websocket
+│   │       ├── __init__.py
+│   │       └── manager.py
+│   └── tests
+│       ├── __init__.py
+│       ├── conftest.py
+│       ├── test_advanced_security_modules.py
+│       ├── test_attve.py
+│       ├── test_code_quality_patterns.py
+│       ├── test_context_and_sequence.py
+│       ├── test_evaluate_endpoint.py
+│       ├── test_governance_and_fix.py
+│       ├── test_intent_verification.py
+│       ├── test_liveops_adapter.py
+│       ├── test_liveops_agent.py
+│       ├── test_liveops_execution.py
+│       ├── test_liveops_policy.py
+│       ├── test_planning_verification.py
+│       ├── test_policy_engine.py
+│       ├── test_roadmap_modules.py
+│       ├── test_semantic_intent.py
+│       ├── test_semantic_prewarm.py
+│       ├── test_semantic_similarity.py
+│       └── test_simulated_cloud.py
+├── cursor-integration
+│   └── .cursor
+│       └── hooks.json
+├── demo
+│   ├── README.md
+│   ├── scripts
+│   │   ├── demo_common.ps1
+│   │   ├── setup_demo.ps1
+│   │   ├── start_demo.ps1
+│   │   ├── stop_demo.ps1
+│   │   └── verify_demo.ps1
+│   ├── setup_demo.bat
+│   ├── start_demo.bat
+│   ├── stop_demo.bat
+│   └── verify_demo.bat
+├── docs
+│   ├── architecture.md
+│   ├── eval-results.md
+│   ├── liveops-one-page-concept.md
+│   ├── semantic-intent-verification.md
+│   ├── recovery
+│   │   ├── repository_baseline.md
+│   │   ├── capability_to_code_map.md
+│   │   └── evidence_manifest.txt
+│   └── evidence
+│       └── ER-001-backend-tests-2026-08-12.txt
+├── frontend
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   ├── vite.config.ts
+│   ├── src
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── components
+│   │   │   ├── LiveOpsPanel.tsx
+│   │   │   ├── GovernanceView.tsx
+│   │   │   └── ... (other React components)
+│   │   ├── hooks
+│   │   │   └── useWebSocket.ts
+│   │   └── styles
+│   └── public
+├── n8n-integration
+│   └── custom-nodes
+│       └── risk-gatekeeper-node
+│           ├── package.json
+│           └── RiskGatekeeper.node.ts
+├── .gitignore
+├── docker-compose.yml
+├── README.md
+└── AGENTS.md
+```
+
+---
+
+## Pytest Collection Count
+
+```
+======================== 271 tests collected in 1.66s =========================
+```
+
+Breakdown by test file (from `--collect-only`):
+- test_advanced_security_modules.py: 12 tests
+- test_attve.py: 7 tests
+- test_code_quality_patterns.py: 11 tests
+- test_context_and_sequence.py: 18 tests
+- test_evaluate_endpoint.py: 15 tests
+- test_governance_and_fix.py: 9 tests
+- test_intent_verification.py: 23 tests
+- test_liveops_adapter.py: 22 tests
+- test_liveops_agent.py: 9 tests
+- test_liveops_execution.py: 14 tests
+- test_liveops_policy.py: 8 tests
+- test_planning_verification.py: 21 tests
+- test_policy_engine.py: 16 tests
+- test_roadmap_modules.py: 13 tests
+- test_semantic_intent.py: 18 tests
+- test_semantic_prewarm.py: 5 tests
+- test_semantic_similarity.py: 17 tests
+- test_simulated_cloud.py: 26 tests
+
+---
+
+## Frontend Build Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm install` / `npm ci` | Install dependencies (lockfile v3) |
+| `npm run dev` | Start Vite dev server (port 5173, host 127.0.0.1) |
+| `npm run build` | Production build: `tsc && vite build` → `frontend/dist/` |
+| `npm run preview` | Preview production build |
+
+**Build verified:** `npm run build` completes successfully (2.16s, 93 modules transformed, 257 kB JS gzipped to 80 kB).
+
+---
+
+## Relevant Configuration Filenames
+
+| File | Purpose |
+|------|---------|
+| `backend/app/config.py` | Central settings (thresholds, DB URL, CORS, limits) via pydantic-settings |
+| `backend/app/database.py` | SQLAlchemy engine + session factory |
+| `backend/requirements.txt` | Python dependencies (pinned) |
+| `backend/pytest.ini` | Pytest config (asyncio mode, test paths) |
+| `backend/data/policies.json` | Module 1 declarative policies |
+| `backend/data/merchant_registry.json` | Module 2 (ATTVE) trusted merchants |
+| `backend/data/protected_paths.json` | Module 7 protected paths + glob patterns |
+| `backend/data/agent_capabilities.json` | Least-privilege / least-agency grants |
+| `backend/data/trusted_sources.json` | Context integrity source allowlist + max age |
+| `backend/data/tool_baselines.json` | Tool integrity baselines |
+| `backend/data/simulated_cloud_seed.json` | LiveOps initial VM/snapshot state |
+| `backend/data/eval_set/*.jsonl` | Evaluation datasets (coding, automation, transaction agents) |
+| `frontend/vite.config.ts` | Vite config (port 5173, proxy `/api`→`127.0.0.1:8000`, `/ws`→`ws://127.0.0.1:8000`) |
+| `frontend/package.json` | npm scripts + deps (React 18, Vite 5, Tailwind) |
+| `frontend/tsconfig.json` | TypeScript config |
+| `frontend/tailwind.config.js` | TailwindCSS config |
+| `docker-compose.yml` | Local dev services (backend:8000, frontend:5173) — no Dockerfiles |
+| `.gitignore` | Excludes venv, node_modules, caches, DB, logs, demo state |
+| `demo/scripts/demo_common.ps1` | Shared launcher helpers (logging, discovery, compat) |
+| `demo/scripts/setup_demo.ps1` | One-time setup orchestrator |
+| `demo/scripts/start_demo.ps1` | Launcher: starts backend+frontend, polls readiness, opens browser |
+| `demo/scripts/stop_demo.ps1` | Stops launcher-owned processes (PID+cmdline verify) |
+| `demo/scripts/verify_demo.ps1` | Read-only environment verification (READY/NOT READY) |
+
+---
+
+## Latest Test Command & Result
+
+**Command executed during this audit:**
+
+```powershell
+cd C:\Users\hp\Downloads\Agent-Sentinel-Workspace\backend
+.venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
+```
+
+**Result:**
+
+```
+........................................................................ [ 26%]
+........................................................................ [ 53%]
+........................................................................ [ 79%]
+.......................................................                  [100%]
+271 passed in 19.73s
+```
+
+**Exit code:** 0
+
+---
+
+**Note:** All evidence gathered by direct file inspection and test execution. No feature claimed complete without source code and passing tests.

@@ -31,7 +31,68 @@ Scope:
 """
 import pytest
 
+from app.main import app
 from app.policy import semantic_similarity
+from app.policy.sequential_behaviour import reset_sessions
+from app.policy.attve import clear_seen_transactions
+from app.policy.feedback_learning import reset_feedback_store
+from app.policy.semantic_similarity import reset_semantic_model_cache
+from app.sandbox.simulated_cloud import reset_lock_registry
+from app.policy import attve
+
+
+@pytest.fixture(autouse=True)
+def _reset_all_global_state():
+    """
+    Reset ALL module-level global mutable state before each test.
+
+    This ensures complete test isolation by clearing:
+    - sequential_behaviour._SESSIONS (session trajectory tracking)
+    - attve._SEEN_TRANSACTION_IDS (duplicate transaction tracking)
+    - feedback_learning._STORE (human feedback learning)
+    - semantic_similarity._model_cache (MiniLM model cache)
+    - simulated_cloud._LOCK_REGISTRY (per-state-file lock registry)
+    """
+    print(f"[FIXTURE SETUP] Resetting global state for test")
+    # Reset sequential behaviour session state
+    reset_sessions()
+
+    # Reset ATTVE duplicate transaction tracking
+    clear_seen_transactions()
+
+    # Reset feedback learning store
+    from app.policy.feedback_learning import reset_feedback_store
+    reset_feedback_store()
+
+    # Reset semantic model cache
+    from app.policy.semantic_similarity import reset_semantic_model_cache
+    reset_semantic_model_cache()
+
+    # Reset simulated cloud lock registry
+    from app.sandbox.simulated_cloud import reset_lock_registry
+    reset_lock_registry()
+
+    # Reload ATTVE merchant registry to ensure clean state
+    attve._load_merchant_registry()
+
+    print(f"[FIXTURE SETUP] Global state reset complete")
+
+    yield
+
+    print(f"[FIXTURE TEARDOWN] Resetting global state after test")
+    # Teardown: also reset after test for extra safety
+    reset_sessions()
+    clear_seen_transactions()
+    from app.policy.feedback_learning import reset_feedback_store as rfs
+    rfs()
+    from app.policy.semantic_similarity import reset_semantic_model_cache as rsmc
+    rsmc()
+    from app.sandbox.simulated_cloud import reset_lock_registry as rlr
+    rlr()
+    attve._load_merchant_registry()
+    # Clear any dependency overrides that may have been set by test modules
+    app.dependency_overrides.clear()
+    print(f"[FIXTURE TEARDOWN] Global state reset complete")
 
 
 @pytest.fixture(autouse=True)

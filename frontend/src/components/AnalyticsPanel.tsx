@@ -218,7 +218,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ messages }) => {
     const moduleCounts: Record<string, number> = {}
     const recentRisks: number[] = []
 
-    items.forEach(({ event, decision }) => {
+items.forEach(({ event, decision }) => {
       if (decision.verdict === 'ALLOW') allow++
       else if (decision.verdict === 'WARN') warn++
       else if (decision.verdict === 'BLOCK') {
@@ -230,7 +230,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ messages }) => {
       totalLatency += decision.latency_ms ?? 0
       if (event.source in sourceCounts) sourceCounts[event.source]++
 
-      // Count module firings
+      // Count verdict-triggering modules (those that produced WARN/BLOCK or changed final verdict)
       decision.module.split(',').forEach((m) => {
         const name = m.trim()
         if (name && name !== 'policy_engine') {
@@ -246,17 +246,26 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ messages }) => {
     const avgLatency = total > 0 ? totalLatency / total : 0
     const blockRate = total > 0 ? (block / total) * 100 : 0
 
-    // Top 5 modules by firing count
-    const topModules = Object.entries(moduleCounts)
+    // Top 5 verdict-triggering modules by firing count
+    const topTriggeredModules = Object.entries(moduleCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
+
+    // Evaluated modules per source (static mapping based on rules_engine.py routing)
+    const evaluatedModulesBySource: Record<string, string[]> = {
+      transaction: ['policy_engine', 'least_privilege', 'memory_integrity', 'multi_agent', 'attve', 'sequential_behaviour', 'intent_verification (advisory)'],
+      cursor: ['policy_engine', 'least_privilege', 'memory_integrity', 'multi_agent', 'planning_verification', 'context_integrity', 'tool_integrity', 'sequential_behaviour', 'predictive_defence', 'intent_verification'],
+      n8n: ['policy_engine', 'least_privilege', 'memory_integrity', 'multi_agent', 'planning_verification', 'context_integrity', 'tool_integrity', 'sequential_behaviour', 'predictive_defence', 'intent_verification'],
+      liveops: ['policy_engine', 'least_privilege', 'memory_integrity', 'multi_agent', 'planning_verification', 'sequential_behaviour', 'intent_verification'],
+    }
 
     return {
       total, allow, warn, block, unblocked,
       avgRisk, avgLatency, blockRate,
       sourceCounts,
-      topModules,
-      recentRisks: recentRisks.slice(-20), // last 20 risk scores
+      topModules: topTriggeredModules,
+      evaluatedModulesBySource,
+      recentRisks: recentRisks.slice(-20),
     }
   }, [items])
 
@@ -271,6 +280,22 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ messages }) => {
     { label: 'CURSOR', value: stats.sourceCounts.cursor, color: '#C4B5FD' },
     { label: 'N8N', value: stats.sourceCounts.n8n, color: '#6EE7B7' },
   ]
+
+  // Module label mapping for display
+  const moduleDisplayNames: Record<string, string> = {
+    'policy_engine': 'Policy Engine',
+    'least_privilege': 'Least Privilege',
+    'memory_integrity': 'Memory Integrity',
+    'multi_agent': 'Multi-Agent',
+    'attve': 'ATTVE',
+    'sequential_behaviour': 'Sequential Behaviour',
+    'intent_verification (advisory)': 'Intent Verification (advisory)',
+    'intent_verification': 'Intent Verification',
+    'planning_verification': 'Planning Verification',
+    'context_integrity': 'Context Integrity',
+    'tool_integrity': 'Tool Integrity',
+    'predictive_defence': 'Predictive Defence',
+  }
 
   return (
     <section className="relative z-10 px-6 lg:px-12 pb-6 font-lexend">
@@ -405,10 +430,52 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ messages }) => {
           </div>
         </div>
 
-        {/* ── Top Policy Modules Leaderboard ──────────────────────────────────── */}
+        {/* ── Evaluated Modules by Source ─────────────────────────────────────────────── */}
         <div className="theme-card p-4">
           <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-3">
-            Top Triggered Safety Modules
+            Evaluated Modules (per Source)
+          </div>
+          {stats.total === 0 ? (
+            <div className="text-xs text-neutral-400 text-center py-4">
+              Trigger events to see evaluated modules
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(stats.sourceCounts)
+                .filter(([, count]) => count > 0)
+                .map(([source]) => {
+                  const modules = stats.evaluatedModulesBySource[source] ?? []
+                  return (
+                    <div key={source} className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          {source.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          ({stats.sourceCounts[source]} events)
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pl-6">
+                        {modules.map((mod) => (
+                          <span
+                            key={mod}
+                            className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-neutral-100 text-neutral-700 border border-neutral-200/80"
+                          >
+                            {moduleDisplayNames[mod] ?? mod}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Verdict-Triggering Modules Leaderboard ────────────────────────────── */}
+        <div className="theme-card p-4">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-3">
+            Verdict-Triggering Modules
           </div>
           {stats.topModules.length === 0 ? (
             <div className="text-xs text-neutral-400 text-center py-4">
@@ -423,7 +490,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ messages }) => {
                 return (
                   <div key={mod} className="flex items-center gap-3">
                     <span className="text-[10px] font-mono text-neutral-400 w-4 text-right">{idx + 1}</span>
-                    <span className="text-[11px] font-medium text-neutral-700 w-44 truncate">{mod}</span>
+                    <span className="text-[11px] font-medium text-neutral-700 w-44 truncate">{moduleDisplayNames[mod] ?? mod}</span>
                     <div className="flex-1 bg-neutral-100 rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${barColors[idx]}`}

@@ -4,11 +4,12 @@ app/api/decide.py
 POST /decide/{event_id} — human approve/reject endpoint.
 
 Allows a human reviewer to act on a WARN-status decision that is pending
-approval.  Validates that:
+approval. Validates that:
   - The event exists.
   - The event has exactly one associated decision.
   - The decision's current verdict is WARN (only WARN events are actionable;
     ALLOW decisions need no human input, BLOCK decisions are refused outright).
+  - The review has not expired.
 
 Updates the decision's human_decision and human_timestamp columns, then
 broadcasts the updated decision over WebSocket so the dashboard reflects
@@ -52,7 +53,8 @@ async def get_decision(event_id: int, db: Session = Depends(get_db)) -> Decision
     summary="Submit a human approve/reject decision for a WARN event",
     description=(
         "Only WARN-status events are actionable. "
-        "ALLOW events don't need review; BLOCK events cannot be overridden here."
+        "ALLOW events don't need review; BLOCK decisions cannot be overridden here. "
+        "Expired reviews (EXPIRED) cannot receive a human decision."
     ),
 )
 async def submit_decision(
@@ -88,6 +90,19 @@ async def submit_decision(
                 f"(human_decision='{decision.human_decision}')."
             ),
         )
+
+    # ── Check if review has expired ────────────────────────────────────────────
+    if decision.review_expires_at:
+        # review_expires_at is stored as naive UTC; make it offset-aware for comparison
+        expires_at = decision.review_expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=(
+                    f"Review period for event {event_id} has expired. "
+                    f"The action must be re-submitted for fresh evaluation."
+                ),
+            )
 
     # ── Record human decision ──────────────────────────────────────────────────
     decision.human_decision = body.decision

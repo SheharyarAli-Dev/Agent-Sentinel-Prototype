@@ -12,6 +12,7 @@ Wires together:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -20,7 +21,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, SessionLocal
 from app.api.evaluate import router as evaluate_router
 from app.api.decide import router as decide_router
 from app.api.n8n_webhook import router as n8n_router
@@ -28,6 +29,7 @@ from app.api.governance import router as governance_router
 from app.api.red_team import router as red_team_router
 from app.api.unblock import router as unblock_router
 from app.api.liveops import router as liveops_router
+from app.models.decision import DecisionORM
 from app.policy.semantic_similarity import get_semantic_model
 from app.websocket.manager import manager
 
@@ -66,11 +68,65 @@ def prewarm_semantic_model() -> None:
     logger.info("Semantic model ready.")
 
 
+async def expire_reviews_task() -> None:
+    """
+    Background task to periodically check for expired WARN reviews and mark them as EXPIRED.
+    Runs every 60 seconds.
+    """
+    while True:
+        try:
+            await asyncio.sleep(60)
+            db = SessionLocal()
+            try:
+                now = datetime.now(timezone.utc)
+                expired = (
+                    db.query(DecisionORM)
+                    .filter(
+                        DecisionORM.verdict == "WARN",
+                        DecisionORM.human_decision.is_(None),
+                        DecisionORM.review_expires_at.isnot(None),
+                        DecisionORM.review_expires_at <= now,
+                    )
+                    .all()
+                )
+                for decision in expired:
+                    decision.verdict = "EXPIRED"
+                    db.commit()
+                    # Broadcast the expiry
+                    try:
+                        await manager.broadcast(
+                            {
+                                "type": "review_expired",
+                                "event_id": decision.event_id,
+                                "decision_id": decision.id,
+                            }
+                        )
+                    except Exception:
+                        pass
+                    logger.info("Review expired for event %d (decision %d)", decision.event_id, decision.id)
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.warning("Error in expire_reviews_task: %s", exc)
+            await asyncio.sleep(60)
+
+
+from datetime import datetime, timezone
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """FastAPI startup: prewarm the semantic model when explicitly enabled."""
     prewarm_semantic_model()
-    yield
+    # Start background task for expiring reviews
+    task = asyncio.create_task(expire_reviews_task())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 # ── Create tables ──────────────────────────────────────────────────────────────
 # Import all ORM models so their metadata is registered before create_all().
