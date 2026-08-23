@@ -14,7 +14,7 @@ const client = axios.create({
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type Verdict = 'ALLOW' | 'WARN' | 'BLOCK'
+export type Verdict = 'ALLOW' | 'WARN' | 'BLOCK' | 'EXPIRED'
 export type HumanDecision = 'approved' | 'rejected'
 export type EventSource = 'cursor' | 'n8n' | 'transaction' | 'liveops'
 

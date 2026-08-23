@@ -330,10 +330,13 @@ export const App: React.FC = () => {
           approach to securing autonomous decisions before by become real-world actions.
         </p>
 
-        {/* Bottom Pill Box with Reload Entrance & Hover Effect */}
+{/* Bottom Pill Box with Reload Entrance & Hover Effect */}
         <div className="mt-14 animate-hero-title-in [animation-delay:700ms] cursor-pointer">
           <div className="px-6 py-2.5 rounded-full bg-[#E5E4DD]/90 border border-[#D5D4CC] text-[#2C2D30] text-xs sm:text-sm font-medium shadow-xs inline-flex items-center transition-all duration-300 hover:scale-105 hover:bg-[#DDDCD4] hover:border-[#C8C7BE] hover:shadow-md">
-            16-Module Safety Core (Policy • ATTVE • Intent • Planning • Context • Sequential • Tool • Least-Privilege • Memory • Multi-Agent • Predictive • Uncertainty • Feedback • Governance • Explainability • Red-Team)
+            Shared Agent-Action Governance Core
+          </div>
+          <div className="mt-2 text-xs text-[#6B6C70] max-w-2xl mx-auto leading-relaxed">
+            Policy &bull; Permissions &bull; Intent Evidence &bull; Human Review &bull; Controlled Execution &bull; Reliability &bull; Traceability
           </div>
           <div className="mt-3">
             <button
@@ -351,7 +354,7 @@ export const App: React.FC = () => {
                     : 'text-amber-700 bg-amber-50 border-amber-200'
                 }`}
               >
-                Defense coverage: {redTeam.defended}/{redTeam.total_attacks} = {redTeam.coverage_pct}%
+                Demo scenario detection: {redTeam.defended}/{redTeam.total_attacks} predefined cases met expected severity
                 {redTeam.gaps.length > 0 && ` · ${redTeam.gaps.length} gap(s)`}
               </span>
             )}
@@ -420,7 +423,8 @@ export const App: React.FC = () => {
                 </div>
                 <div className="px-4 py-2.5 border-t border-neutral-100 text-[11px] text-neutral-500 bg-neutral-50">
                   Each attack is fired through the live evaluation pipeline (same engine as the feed);
-                  a pass means it was caught at or above the expected severity.
+                  a pass means it was caught at or above the expected severity. This is a regression set,
+                  not complete security coverage.
                 </div>
               </div>
             )}

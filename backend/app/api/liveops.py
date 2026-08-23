@@ -55,7 +55,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -63,11 +63,12 @@ from sqlalchemy.orm import Session
 from app.adapters.liveops_adapter import ALLOWED_TOOLS
 from app.database import get_db
 from app.models.decision import DecisionORM
-from app.models.event import EventORM
+from app.models.event import EventCreate, EventORM
 from app.models.liveops_execution import (
     LiveOpsExecutionORM,
     LiveOpsExecutionResponse,
 )
+from app.models.operation import OperationORM, update_operation_state, verify_outcome, OutcomeVerificationResult, build_canonical_action, compute_action_fingerprint, verify_outcome, OutcomeVerificationResult
 from app.sandbox.simulated_cloud import SimulatedCloud
 
 logger = logging.getLogger(__name__)
@@ -361,6 +362,81 @@ async def execute_liveops_action(
             )
         # approved → fall through to execute
 
+    # ── Get or create operation record ────────────────────────────────────────
+    from sqlalchemy.exc import IntegrityError
+    max_retries = 3
+    for attempt in range(max_retries):
+        operation = (
+            db.query(OperationORM)
+            .filter(OperationORM.event_id == event_id)
+            .order_by(OperationORM.id.desc())
+            .first()
+        )
+
+        if operation is None:
+            # Operation should always exist if decision exists
+            logger.warning("No operation found for event %d, creating minimal record", event_id)
+            # Build a minimal canonical action for legacy operations
+            from app.models.operation import build_canonical_action
+            legacy_event = EventCreate(
+                source=event.source,
+                event_type=event.event_type,
+                payload=json.loads(event.payload) if isinstance(event.payload, str) else event.payload,
+                original_goal=event.original_goal,
+            )
+            canonical = build_canonical_action(legacy_event)
+            canonical_json = canonical.to_canonical_json()
+            fingerprint = compute_action_fingerprint(canonical)
+            
+            operation = OperationORM(
+                operation_id=f"op-legacy-{event_id}",
+                source=event.source,
+                event_id=event_id,
+                canonical_action_json=canonical_json,
+                action_fingerprint=fingerprint,
+                lifecycle_state="approved",
+            )
+            db.add(operation)
+            try:
+                db.commit()
+                db.refresh(operation)
+            except IntegrityError:
+                db.rollback()
+                # Another request created it concurrently, retry
+                if attempt < max_retries - 1:
+                    continue
+                raise
+        break
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get or create operation for event {event_id} after {max_retries} attempts",
+        )
+
+    # Check operation state allows execution
+    if operation.lifecycle_state not in ("approved", "executing", "executed"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Operation {operation.operation_id} is in state '{operation.lifecycle_state}' "
+                f"and cannot be executed. Expected 'approved', 'executing', or 'executed'."
+            ),
+        )
+
+    # If already executed, return conflict
+    if operation.lifecycle_state == "executed":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Operation {operation.operation_id} already executed exactly-once.",
+        )
+
+    # ── 7. No executed ledger row already exists (exactly-once pre-check) ─────
+    existing = db.scalar(
+        select(LiveOpsExecutionORM).where(LiveOpsExecutionORM.event_id == event_id)
+    )
+    if existing is not None and existing.status == "executed":
+        raise _conflict_response(existing)
+
     # ── Exactly-once reservation (authoritative DB guard) ─────────────────────
     if existing is not None:
         # Any non-executed existing row (pending/failed/rejected/blocked) conflicts.
@@ -384,6 +460,10 @@ async def execute_liveops_action(
         raise _conflict_response(racing) from None
     db.refresh(ledger)
 
+    # ── Update operation state to mark execution started ──────────────────────
+    from app.models.operation import update_operation_state
+    update_operation_state(db, operation, "executing")
+
     # ── Dispatch to the simulated cloud (no dynamic getattr on caller input) ──
     try:
         outcome = _dispatch_tool(cloud, tool, target, payload)
@@ -392,6 +472,8 @@ async def execute_liveops_action(
         ledger.status = "failed"
         ledger.result = json.dumps({"error": str(exc)})
         db.commit()
+        # Update operation state to failed
+        update_operation_state(db, operation, "failed", error_info=str(exc))
         raise HTTPException(
             status_code=500,
             detail=f"Simulated cloud operation failed for event {event_id}: {exc}",
@@ -402,9 +484,18 @@ async def execute_liveops_action(
     ledger.executed_at = datetime.now(timezone.utc)
     ledger.result = json.dumps(_summarise(tool, target if tool != "list_resources" else None, outcome))
     db.commit()
+    
+    # Update operation state to executed
+    update_operation_state(db, operation, "executed")
     db.refresh(ledger)
 
-    logger.info("LiveOps event %d executed — tool=%s target=%s", event_id, tool, target)
+    # ── Authorized Outcome Verification ───────────────────────────────────────
+    cloud = get_cloud()
+    verification = verify_outcome(db, operation, cloud, ledger)
+
+    logger.info("LiveOps event %d executed — tool=%s target=%s operation=%s verification=%s",
+                event_id, tool, target, operation.operation_id, verification.status)
+    
     return LiveOpsExecutionResponse.model_validate(ledger)
 
 
@@ -432,3 +523,48 @@ async def get_liveops_execution(
             detail=f"No execution record found for event {event_id}.",
         )
     return LiveOpsExecutionResponse.model_validate(ledger)
+
+
+# ── Outcome Verification lookup ──────────────────────────────────────────────────
+
+@router.get(
+    "/outcome/{event_id}",
+    response_model=OutcomeVerificationResult,
+    summary="Get the authorized outcome verification result for a LiveOps event",
+    description=(
+        "Returns the outcome verification result for a LiveOps event, including "
+        "the verification status (VERIFIED, PARTIAL, MISMATCH, EXECUTION_FAILED, "
+        "OUTCOME_UNKNOWN), expected vs observed state, and any invariant violations."
+    ),
+)
+async def get_outcome_verification(
+    event_id: int,
+    db: Session = Depends(get_db),
+) -> OutcomeVerificationResult:
+    # Get the operation record
+    operation = (
+        db.query(OperationORM)
+        .filter(OperationORM.event_id == event_id)
+        .order_by(OperationORM.id.desc())
+        .first()
+    )
+    if operation is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No operation found for event {event_id}.",
+        )
+
+    # Get the execution record
+    execution_record = db.scalar(
+        select(LiveOpsExecutionORM).where(LiveOpsExecutionORM.event_id == event_id)
+    )
+    if execution_record is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No execution record found for event {event_id}.",
+        )
+
+    # Perform verification
+    cloud = get_cloud()
+    verification = verify_outcome(db, operation, cloud, execution_record)
+    return verification

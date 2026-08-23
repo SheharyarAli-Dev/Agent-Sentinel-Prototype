@@ -7,7 +7,6 @@
  */
 import React, { useState } from 'react'
 import type { EventRecord, DecisionRecord } from '../lib/api'
-import { unblockAction } from '../lib/api'
 
 interface EventCardProps {
   event: EventRecord
@@ -17,23 +16,27 @@ interface EventCardProps {
 }
 
 export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview, onDecisionUpdate }) => {
-  const [isUnblocking, setIsUnblocking] = useState(false)
   const isAllow = decision.verdict === 'ALLOW'
   const isWarn = decision.verdict === 'WARN'
   const isBlock = decision.verdict === 'BLOCK'
+  const isExpired = decision.verdict === 'EXPIRED'
 
   const verdictBadgeClass = isAllow
     ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-300/80 shadow-xs'
     : isWarn
     ? 'bg-amber-100/90 text-amber-900 border border-amber-300/80 shadow-xs'
+    : isExpired
+    ? 'bg-slate-100/90 text-slate-900 border border-slate-300/80 shadow-xs'
     : 'bg-rose-100/90 text-rose-900 border border-rose-300/80 shadow-xs'
 
   const sourceIcon =
     event.source === 'cursor'
-      ? '⚡ Cursor IDE'
+      ? '⚡ Coding-Agent Action'
       : event.source === 'n8n'
-      ? '🔄 n8n Workflow'
-      : '☕ Coffee Order'
+      ? '🔄 Workflow Action'
+      : event.source === 'liveops'
+      ? '🖥️ LiveOps Operation'
+      : '☕ ATTVE Transaction'
 
   const formattedTime = new Date(decision.timestamp).toLocaleTimeString([], {
     hour: '2-digit',
@@ -52,7 +55,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview,
   return (
     <div
       className={`font-lexend theme-card p-5 transition-all duration-300 hover:bg-neutral-50/90 hover:border-neutral-300 hover:shadow-md hover:-translate-y-0.5 ${
-        isWarn ? 'border-amber-300/80 bg-amber-50/30' : isBlock ? 'border-rose-200/90 bg-rose-50/30' : ''
+        isWarn ? 'border-amber-300/80 bg-amber-50/30' : isBlock || isExpired ? 'border-rose-200/90 bg-rose-50/30' : ''
       }`}
     >
       {/* ── Top Bar: Source, Timestamp & Verdict ───────────────────────────── */}
@@ -196,26 +199,14 @@ export const EventCard: React.FC<EventCardProps> = ({ event, decision, onReview,
             <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-amber-100 text-amber-900 border border-amber-300">
               Pending Human Review
             </span>
+          ) : isExpired ? (
+            <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 text-slate-800 border border-slate-300">
+              Review expired — re-submit for fresh evaluation
+            </span>
           ) : isBlock ? (
-            <button
-              disabled={isUnblocking}
-              onClick={async () => {
-                if (!window.confirm(`Unblock Event #${event.id}? This overrides the BLOCK decision and marks the action as permitted.`)) return
-                setIsUnblocking(true)
-                try {
-                  const updated = await unblockAction(event.id)
-                  if (onDecisionUpdate) onDecisionUpdate(event.id, updated)
-                } catch (err) {
-                  console.error('Unblock failed:', err)
-                  alert('Failed to unblock. Please try again.')
-                } finally {
-                  setIsUnblocking(false)
-                }
-              }}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-900 border border-violet-300 transition-all duration-200 flex items-center gap-1.5 shadow-sm hover:shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isUnblocking ? '⏳ Unblocking...' : '🔓 Unblock Action'}
-            </button>
+            <span className="px-2.5 py-1 text-xs font-medium rounded-lg bg-rose-100 text-rose-800 border border-rose-300">
+              Fresh evaluation required after policy, permission, or request correction.
+            </span>
           ) : (
             <span className="text-xs text-neutral-400">Auto-Resolved</span>
           )}

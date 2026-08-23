@@ -97,6 +97,12 @@ def _cloud_lock_for(state_path: Path) -> threading.RLock:
         return lock
 
 
+def reset_lock_registry() -> None:
+    """Clear the process-wide lock registry. Primarily for testing."""
+    with _LOCK_REGISTRY_GUARD:
+        _LOCK_REGISTRY.clear()
+
+
 # ── SimulatedCloud ─────────────────────────────────────────────────────────────
 
 class SimulatedCloud:

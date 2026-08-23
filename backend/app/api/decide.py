@@ -4,13 +4,16 @@ app/api/decide.py
 POST /decide/{event_id} — human approve/reject endpoint.
 
 Allows a human reviewer to act on a WARN-status decision that is pending
-approval.  Validates that:
+approval. Validates that:
   - The event exists.
   - The event has exactly one associated decision.
   - The decision's current verdict is WARN (only WARN events are actionable;
     ALLOW decisions need no human input, BLOCK decisions are refused outright).
+  - The review has not expired.
+  - The operation is in a state that allows human decision.
 
-Updates the decision's human_decision and human_timestamp columns, then
+Updates the decision's human_decision and human_timestamp columns,
+updates the operation lifecycle state, then
 broadcasts the updated decision over WebSocket so the dashboard reflects
 the human's choice immediately.
 
@@ -29,6 +32,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.decision import DecisionResponse, HumanDecisionRequest, DecisionORM
 from app.models.event import EventORM
+from app.models.operation import OperationORM
 from app.websocket.manager import manager
 
 logger = logging.getLogger(__name__)
@@ -52,7 +56,8 @@ async def get_decision(event_id: int, db: Session = Depends(get_db)) -> Decision
     summary="Submit a human approve/reject decision for a WARN event",
     description=(
         "Only WARN-status events are actionable. "
-        "ALLOW events don't need review; BLOCK events cannot be overridden here."
+        "ALLOW events don't need review; BLOCK decisions cannot be overridden here. "
+        "Expired reviews (EXPIRED) cannot receive a human decision."
     ),
 )
 async def submit_decision(
@@ -89,11 +94,89 @@ async def submit_decision(
             ),
         )
 
+    # ── Check if review has expired ────────────────────────────────────────────
+    if decision.review_expires_at:
+        # review_expires_at is stored as naive UTC; make it offset-aware for comparison
+        expires_at = decision.review_expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=(
+                    f"Review period for event {event_id} has expired. "
+                    f"The action must be re-submitted for fresh evaluation."
+                ),
+            )
+
+    # ── Get associated operation ───────────────────────────────────────────────
+    operation = (
+        db.query(OperationORM)
+        .filter(OperationORM.event_id == event_id)
+        .order_by(OperationORM.id.desc())
+        .first()
+    )
+
+    if operation is None:
+        # Operation should always exist if decision exists, but handle gracefully
+        logger.warning("No operation found for event %d, creating minimal record", event_id)
+        operation = OperationORM(
+            operation_id=f"op-legacy-{event_id}",
+            source=event.source,
+            event_id=event_id,
+            canonical_action_json="{}",
+            action_fingerprint="legacy",
+            lifecycle_state="evaluated",
+        )
+        db.add(operation)
+        db.commit()
+        db.refresh(operation)
+
+    # Check if operation is in a state that allows human decision
+    if operation.lifecycle_state not in ("evaluated", "approved"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Operation {operation.operation_id} is in state '{operation.lifecycle_state}' "
+                f"and cannot receive a human decision. Expected 'evaluated' or 'approved'."
+            ),
+        )
+
+    # Check if already reviewed
+    if decision.human_decision is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Event {event_id} has already been reviewed "
+                f"(human_decision='{decision.human_decision}')."
+            ),
+        )
+
+    # Check if review has expired
+    if operation.review_expires_at:
+        expires_at = operation.review_expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= datetime.now(timezone.utc):
+            # Mark operation as expired
+            from app.models.operation import update_operation_state
+            update_operation_state(db, operation, "expired")
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=(
+                    f"Review period for event {event_id} has expired. "
+                    f"The action must be re-submitted for fresh evaluation."
+                ),
+            )
+
     # ── Record human decision ──────────────────────────────────────────────────
     decision.human_decision = body.decision
     decision.human_timestamp = datetime.now(timezone.utc)
     db.commit()
     db.refresh(decision)
+
+    # ── Update operation state based on human decision ─────────────────────────
+    from app.models.operation import update_operation_state
+    if body.decision == "approved":
+        update_operation_state(db, operation, "approved")
+    else:
+        update_operation_state(db, operation, "rejected")
 
     # ── Module 10 — feed the human decision into continual learning ────────────
     try:
@@ -110,7 +193,8 @@ async def submit_decision(
         logger.warning("Feedback learning record failed: %s", exc)
 
     logger.info(
-        "Human decision for event %d: %s", event_id, body.decision
+        "Human decision for event %d: %s (operation: %s)",
+        event_id, body.decision, operation.operation_id
     )
 
     # ── Broadcast updated decision ─────────────────────────────────────────────
@@ -121,6 +205,11 @@ async def submit_decision(
                 "type": "human_decision",
                 "event_id": event_id,
                 "decision": decision_resp.model_dump(mode="json"),
+                "operation": {
+                    "operation_id": operation.operation_id,
+                    "action_fingerprint": operation.action_fingerprint,
+                    "lifecycle_state": operation.lifecycle_state,
+                },
             }
         )
     except Exception as exc:

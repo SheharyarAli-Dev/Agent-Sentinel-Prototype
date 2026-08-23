@@ -1,0 +1,22 @@
+Agent Sentinel Evidence Record ER-001
+Evidence date: 2026-08-12
+
+=== Repository revision ===
+39eecb01c38d5984f8c65d43f6b7d69de6abc396
+
+=== Working tree status ===
+?? docs/evidence/
+[END WORKING TREE STATUS]
+
+=== Python version ===
+Python 3.12.10
+
+=== Pytest version ===
+pytest 8.2.2
+
+=== Backend test execution ===
+........................................................................ [ 26%]
+........................................................................ [ 53%]
+........................................................................ [ 79%]
+.......................................................                  [100%]
+271 passed in 9.33s

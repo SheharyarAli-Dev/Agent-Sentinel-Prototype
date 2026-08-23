@@ -13,13 +13,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.database import get_db, Base
-from app.models.event import EventORM
-from app.models.decision import DecisionORM
-
-from sqlalchemy.pool import StaticPool
 
 # ── In-memory SQLite for tests ─────────────────────────────────────────────────
 TEST_DATABASE_URL = "sqlite://"  # in-memory
@@ -31,8 +28,6 @@ test_engine = create_engine(
 )
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
-Base.metadata.create_all(bind=test_engine)
-
 
 def override_get_db():
     db = TestSessionLocal()
@@ -42,7 +37,22 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def _reset_test_db():
+    """Reset the test database before each test."""
+    # Clear dependency override first
+    if get_db in app.dependency_overrides:
+        del app.dependency_overrides[get_db]
+    # Recreate all tables
+    Base.metadata.drop_all(bind=test_engine)
+    Base.metadata.create_all(bind=test_engine)
+    # Re-apply override
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    # Cleanup
+    if get_db in app.dependency_overrides:
+        del app.dependency_overrides[get_db]
+
 
 client = TestClient(app)
 

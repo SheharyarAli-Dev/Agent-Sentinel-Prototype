@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.models.decision import DecisionORM
 from app.models.event import EventORM
+from app.models.operation import OperationORM
 
 
 def get_audit_trail(
@@ -28,10 +29,11 @@ def get_audit_trail(
     verdict: str | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
-    """Return joined event+decision records, newest first, with optional filters."""
+    """Return joined event+decision+operation records, newest first, with optional filters."""
     q = (
-        db.query(EventORM, DecisionORM)
+        db.query(EventORM, DecisionORM, OperationORM)
         .join(DecisionORM, DecisionORM.event_id == EventORM.id)
+        .outerjoin(OperationORM, OperationORM.event_id == EventORM.id)
         .order_by(DecisionORM.id.desc())
     )
     if source:
@@ -41,7 +43,7 @@ def get_audit_trail(
 
     rows = q.limit(limit).all()
     trail: list[dict[str, Any]] = []
-    for event, decision in rows:
+    for event, decision, operation in rows:
         trail.append(
             {
                 "event_id": event.id,
@@ -56,6 +58,16 @@ def get_audit_trail(
                 "latency_ms": decision.latency_ms,
                 "human_decision": decision.human_decision,
                 "timestamp": decision.timestamp.isoformat(),
+                "operation": {
+                    "operation_id": operation.operation_id if operation else None,
+                    "action_fingerprint": operation.action_fingerprint if operation else None,
+                    "lifecycle_state": operation.lifecycle_state if operation else None,
+                    "action_version": operation.action_version if operation else None,
+                    "review_expires_at": operation.review_expires_at.isoformat() if operation and operation.review_expires_at else None,
+                    "execution_started_at": operation.execution_started_at.isoformat() if operation and operation.execution_started_at else None,
+                    "execution_completed_at": operation.execution_completed_at.isoformat() if operation and operation.execution_completed_at else None,
+                    "error_info": operation.error_info if operation else None,
+                } if operation else None,
             }
         )
     return trail
@@ -68,21 +80,23 @@ def build_incident_report(db: Session) -> dict[str, Any]:
     list of blocked actions (the "incidents").
     """
     pairs = (
-        db.query(EventORM, DecisionORM)
+        db.query(EventORM, DecisionORM, OperationORM)
         .join(DecisionORM, DecisionORM.event_id == EventORM.id)
+        .outerjoin(OperationORM, OperationORM.event_id == EventORM.id)
         .order_by(DecisionORM.id.desc())
         .all()
     )
 
     total = len(pairs)
-    by_verdict: dict[str, int] = {"ALLOW": 0, "WARN": 0, "BLOCK": 0}
+    by_verdict: dict[str, int] = {"ALLOW": 0, "WARN": 0, "BLOCK": 0, "EXPIRED": 0}
     by_source: dict[str, int] = {}
     module_hits: dict[str, int] = {}
     incidents: list[dict[str, Any]] = []
     pending_reviews = 0
     latencies: list[float] = []
+    operation_states: dict[str, int] = {}
 
-    for event, decision in pairs:
+    for event, decision, operation in pairs:
         by_verdict[decision.verdict] = by_verdict.get(decision.verdict, 0) + 1
         by_source[event.source] = by_source.get(event.source, 0) + 1
         if decision.latency_ms:
@@ -109,6 +123,9 @@ def build_incident_report(db: Session) -> dict[str, Any]:
                 }
             )
 
+        if operation:
+            operation_states[operation.lifecycle_state] = operation_states.get(operation.lifecycle_state, 0) + 1
+
     top_modules = sorted(module_hits.items(), key=lambda kv: kv[1], reverse=True)
 
     return {
@@ -116,6 +133,7 @@ def build_incident_report(db: Session) -> dict[str, Any]:
         "total_decisions": total,
         "verdict_breakdown": by_verdict,
         "source_breakdown": by_source,
+        "operation_state_breakdown": operation_states,
         "pending_human_reviews": pending_reviews,
         "avg_latency_ms": round(sum(latencies) / len(latencies), 2) if latencies else 0.0,
         "max_latency_ms": round(max(latencies), 2) if latencies else 0.0,

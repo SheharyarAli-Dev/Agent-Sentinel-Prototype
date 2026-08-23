@@ -68,18 +68,23 @@ def apply_learning(event: EventCreate, final_verdict: str) -> tuple[str, str | N
 
     approved, rejected = s["approved"], s["rejected"]
 
-    # Learned-safe: humans keep approving this flagged action → stop nagging.
+    # Learned-safe: humans keep approving this flagged action -> stop nagging.
     if final_verdict == "WARN" and approved >= LEARN_THRESHOLD and rejected == 0:
         return "ALLOW", (
             f"Human-feedback learning: this action has been approved by a human "
             f"{approved}× with no rejections; auto-cleared to reduce reviewer fatigue."
         )
 
-    # Learned-unsafe: humans keep rejecting this → tighten.
+    # Learned-unsafe: humans keep rejecting this -> tighten.
     if final_verdict == "ALLOW" and rejected >= LEARN_THRESHOLD and approved == 0:
         return "WARN", (
             f"Human-feedback learning: this action has been rejected by a human "
-            f"{rejected}× before; escalated ALLOW → WARN for review."
+            f"{rejected}× before; escalated ALLOW -> WARN for review."
         )
 
     return final_verdict, None
+
+
+def reset_feedback_store() -> None:
+    """Clear the in-memory feedback store. Primarily for testing."""
+    _STORE.clear()
