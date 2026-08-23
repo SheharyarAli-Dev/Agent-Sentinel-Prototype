@@ -165,4 +165,4 @@ READY - the demo can be started with start_demo.bat
 
 ## Final Commit Hash
 
-`0d5c05cdacf05cd7864639ba16a1dcd459d64114` — "feat: authorized outcome verification for LiveOps"
+`63af2dc80ca8eea1058e2bf49a412d189a5800b4` — "docs: add recovery documentation for operation identity and outcome verification"
