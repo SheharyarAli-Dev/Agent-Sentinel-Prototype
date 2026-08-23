@@ -298,7 +298,7 @@ export const App: React.FC = () => {
       <BackgroundCanvas />
 
       {/* ── Top Header Navigation Bar ───────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-[#070B14]/80 backdrop-blur-md px-6 lg:px-12 py-5 border-b border-slate-800/50">
+      <header className="sticky top-0 z-40 bg-[#060a12]/85 backdrop-blur-md px-6 lg:px-12 py-5 border-b border-cyan-900/20">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* FAST NUCES Logo Top Left */}
           <FastNucesLogo />
@@ -314,20 +314,22 @@ export const App: React.FC = () => {
       <section className="relative z-10 max-w-5xl mx-auto px-6 pt-10 pb-16 text-center flex flex-col items-center justify-center min-h-[78vh]">
         {/* Top Pill Box with Reload Entrance & Hover Effect */}
         <div className="animate-hero-title-in [animation-delay:100ms]">
-          <div className="px-4.5 py-2 rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-300 text-xs font-medium inline-flex items-center shadow-xs">
+          <div className="px-4 py-1.5 rounded-full bg-[#0d1525]/80 border border-cyan-800/25 text-slate-400 text-[11px] font-medium inline-flex items-center shadow-xs tracking-wide">
             AI powered engineering with FYP Prototype
           </div>
         </div>
 
         {/* Main Title Heading with Smooth Reload Entrance & Hover Movement */}
-        <h1 className="mt-8 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-100 leading-[1.12] max-w-3xl animate-hero-title-in [animation-delay:300ms] transition-all duration-500">
-          Agent Sentinel <br />
-          Built for Real Impact <br />
-          with Agent Action
+        <h1 className="mt-8 text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-extrabold tracking-tight leading-[1.15] max-w-3xl animate-hero-title-in [animation-delay:300ms] transition-all duration-500">
+          <span className="text-white">Agent Sentinel</span>
+          <br />
+          <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Built for Real Impact</span>
+          <br />
+          <span className="text-slate-200">with Agent Action</span>
         </h1>
 
         {/* Subtitle Paragraph with Smooth Fade Entrance */}
-        <p className="mt-6 text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl font-sans animate-hero-fade-in [animation-delay:500ms]">
+        <p className="mt-8 text-sm sm:text-[15px] text-slate-300/90 leading-[1.75] max-w-xl font-sans animate-hero-fade-in [animation-delay:500ms]">
           An AI-native approach to building smarter, faster, and more scalable digital products.{' '}
           We design and build solutions that transform how businesses operate with An AI-native{' '}
           approach to securing autonomous decisions before by become real-world actions.
@@ -335,11 +337,11 @@ export const App: React.FC = () => {
 
 {/* Bottom Pill Box with Reload Entrance & Hover Effect */}
         <div className="mt-14 animate-hero-title-in [animation-delay:700ms]">
-          <div className="px-6 py-2.5 rounded-full bg-slate-800/60 border border-cyan-800/40 text-slate-200 text-xs sm:text-sm font-medium shadow-xs inline-flex items-center">
+          <div className="px-6 py-2.5 rounded-full bg-[#0a1628]/80 border border-cyan-700/35 text-white text-xs sm:text-sm font-semibold shadow-xs inline-flex items-center tracking-wide">
             Shared Agent-Action Governance Core
           </div>
-          <div className="mt-2 text-xs text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Policy &bull; Permissions &bull; Intent Evidence &bull; Human Review &bull; Controlled Execution &bull; Reliability &bull; Traceability
+          <div className="mt-2.5 text-xs text-slate-400/90 max-w-2xl mx-auto leading-relaxed tracking-wide">
+            Policy <span className="text-cyan-600/60">&bull;</span> Permissions <span className="text-cyan-600/60">&bull;</span> Intent Evidence <span className="text-cyan-600/60">&bull;</span> Human Review <span className="text-cyan-600/60">&bull;</span> Controlled Execution <span className="text-cyan-600/60">&bull;</span> Reliability <span className="text-cyan-600/60">&bull;</span> Traceability
           </div>
           <div className="mt-3">
             <button
