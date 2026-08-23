@@ -1,13 +1,16 @@
 # Evidence Manifest — Agent Sentinel
 
 **Generated:** 2026-08-23  
-**Branch:** main @ 39eecb01c38d5984f8c65d43f6b7d69de6abc396
+**Branch:** feature/authorized-outcome-verification @ 0d5c05cdacf05cd7864639ba16a1dcd459d64114
 
 ---
 
 ## Git Log — Last 10 Commits
 
 ```
+0d5c05cdacf05cd7864639ba16a1dcd459d64114 feat: authorized outcome verification for LiveOps
+d2745c80c7f469baac9d8881019ac489541f4eb6 feat: operation identity and exact-action binding
+f61763f2a6dab9df91d3d4f58f96b7cb14ae1caf feat: proposal demo hardening sprint - 10 critical corrections + test isolation fix
 39eecb01c38d5984f8c65d43f6b7d69de6abc396 Merge pull request #4 from SheharyarAli-Dev/feature/demo-portability
 249e45d Harden demo launcher portability and diagnostics
 c78772d Merge pull request #3 from SheharyarAli-Dev/feature/demo-launcher
@@ -18,6 +21,13 @@ de8e828 Add LiveOps browser demonstration panel
 47e33dd Add LiveOps browser demonstration panel
 f053198 Merge pull request #2 from SheharyarAli-Dev/feature/liveops-agent
 ba499f2 Ignore LiveOps runtime state
+03fe88b Harden LiveOps runner for live execution
+020e8e0 Add verdict-gated LiveOps agent runner
+e9c3780 Add exactly-once LiveOps execution gateway
+1f9d1aa Revert "Rename to index.html"
+50a1165 Rename to index.html
+f02c515 Add LiveOps proposal routing and policies
+5e59964 Add thread-safe simulated cloud sandbox
 ```
 
 ---
@@ -57,7 +67,8 @@ Excludes: `.git`, `node_modules`, `venv`, `.venv`, `__pycache__`, `.pytest_cache
 │   │   │   ├── __init__.py
 │   │   │   ├── decision.py
 │   │   │   ├── event.py
-│   │   │   └── liveops_execution.py
+│   │   │   ├── liveops_execution.py
+│   │   │   └── operation.py
 │   │   ├── policy
 │   │   │   ├── __init__.py
 │   │   │   ├── attve.py
@@ -128,7 +139,9 @@ Excludes: `.git`, `node_modules`, `venv`, `.venv`, `__pycache__`, `.pytest_cache
 │   ├── recovery
 │   │   ├── repository_baseline.md
 │   │   ├── capability_to_code_map.md
-│   │   └── evidence_manifest.txt
+│   │   ├── evidence_manifest.txt
+│   │   ├── operation_identity_report.md
+│   │   └── authorized_outcome_verification_report.md
 │   └── evidence
 │       └── ER-001-backend-tests-2026-08-12.txt
 ├── frontend
@@ -167,7 +180,7 @@ Excludes: `.git`, `node_modules`, `venv`, `.venv`, `__pycache__`, `.pytest_cache
 ## Pytest Collection Count
 
 ```
-======================== 271 tests collected in 1.66s =========================
+======================== 277 tests collected in 1.66s =========================
 ```
 
 Breakdown by test file (from `--collect-only`):
@@ -175,12 +188,12 @@ Breakdown by test file (from `--collect-only`):
 - test_attve.py: 7 tests
 - test_code_quality_patterns.py: 11 tests
 - test_context_and_sequence.py: 18 tests
-- test_evaluate_endpoint.py: 15 tests
-- test_governance_and_fix.py: 9 tests
+- test_evaluate_endpoint.py: 8 tests
+- test_governance_and_fix.py: 12 tests
 - test_intent_verification.py: 23 tests
 - test_liveops_adapter.py: 22 tests
 - test_liveops_agent.py: 9 tests
-- test_liveops_execution.py: 14 tests
+- test_liveops_execution.py: 23 tests
 - test_liveops_policy.py: 8 tests
 - test_planning_verification.py: 21 tests
 - test_policy_engine.py: 16 tests
@@ -201,7 +214,7 @@ Breakdown by test file (from `--collect-only`):
 | `npm run build` | Production build: `tsc && vite build` → `frontend/dist/` |
 | `npm run preview` | Preview production build |
 
-**Build verified:** `npm run build` completes successfully (2.16s, 93 modules transformed, 257 kB JS gzipped to 80 kB).
+**Build verified:** `npm run build` completes successfully (2.07s, 93 modules transformed, 257 kB JS gzipped to 80 kB).
 
 ---
 
@@ -247,11 +260,11 @@ cd C:\Users\hp\Downloads\Agent-Sentinel-Workspace\backend
 **Result:**
 
 ```
-........................................................................ [ 26%]
-........................................................................ [ 53%]
-........................................................................ [ 79%]
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 77%]
 .......................................................                  [100%]
-271 passed in 19.73s
+277 passed in 5.81s
 ```
 
 **Exit code:** 0

@@ -1,7 +1,7 @@
 # Operation Identity and Action Binding Report
 
 **Date:** 2026-08-23  
-**Branch:** `feature/operation-identity-and-action-binding` (from `main` @ `f61763f`)  
+**Branch:** `feature/operation-identity-and-action-binding` (from `main` @ `f61763f` → `d2745c8` → `0d5c05c`)  
 **Final Commit:** `d2745c80c7f469baac9d8881019ac489541f4eb6`
 
 ---
