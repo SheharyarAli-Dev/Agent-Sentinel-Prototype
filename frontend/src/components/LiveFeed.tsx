@@ -99,8 +99,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setSourceFilter('all')}
             className={`w-full py-3 px-6 rounded-full text-xs font-extrabold uppercase tracking-wider text-center transition-all duration-200 shadow-sm ${
               sourceFilter === 'all'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#F4F3ED] text-[#22252A] border border-[#E4E3DB] hover:bg-[#E5E3D9] hover:scale-[1.01]'
+                ? 'bg-gradient-to-r from-cyan-700/30 to-teal-700/20 text-white shadow-md border border-cyan-600/40'
+                : 'bg-[#0a1628]/70 text-slate-400 border border-cyan-900/20 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01]'
             }`}
           >
             ALL SOURCES
@@ -111,8 +111,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setSourceFilter('n8n')}
             className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
               sourceFilter === 'n8n'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+                ? 'bg-gradient-to-r from-cyan-700/30 to-teal-700/20 text-white shadow-md border border-cyan-600/40'
+                : 'bg-[#0a1628]/50 text-slate-400 border border-cyan-900/15 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01] shadow-xs'
             }`}
           >
             N8N
@@ -122,8 +122,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setSourceFilter('transaction')}
             className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
               sourceFilter === 'transaction'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+                ? 'bg-gradient-to-r from-cyan-700/30 to-teal-700/20 text-white shadow-md border border-cyan-600/40'
+                : 'bg-[#0a1628]/50 text-slate-400 border border-cyan-900/15 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01] shadow-xs'
             }`}
           >
             TRANSACTION
@@ -133,8 +133,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setSourceFilter('cursor')}
             className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
               sourceFilter === 'cursor'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+                ? 'bg-gradient-to-r from-cyan-700/30 to-teal-700/20 text-white shadow-md border border-cyan-600/40'
+                : 'bg-[#0a1628]/50 text-slate-400 border border-cyan-900/15 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01] shadow-xs'
             }`}
           >
             CURSOR
@@ -144,8 +144,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setSourceFilter('liveops')}
             className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
               sourceFilter === 'liveops'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+                ? 'bg-gradient-to-r from-cyan-700/30 to-teal-700/20 text-white shadow-md border border-cyan-600/40'
+                : 'bg-[#0a1628]/50 text-slate-400 border border-cyan-900/15 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01] shadow-xs'
             }`}
           >
             LIVEOPS
@@ -155,41 +155,41 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
         {/* ── CENTER COLUMN: 2x2 COLOR STATS GRID ─────────────────────────── */}
         <div className="lg:col-span-4 grid grid-cols-2 gap-3.5">
           {/* ALLOWED */}
-          <div className="p-4 rounded-3xl bg-[#D6EEFF] border border-[#BCE1FC] flex flex-col justify-between">
-            <span className="text-[11px] font-extrabold text-[#0C4A6E] uppercase tracking-wider">
+          <div className="p-4 rounded-3xl bg-emerald-950/50 border border-emerald-800/30 flex flex-col justify-between">
+            <span className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wider">
               ALLOWED
             </span>
-            <span className="text-3xl font-extrabold text-[#0C4A6E] font-mono mt-2">
+            <span className="text-3xl font-extrabold text-emerald-300 font-mono mt-2">
               {stats.allow}
             </span>
           </div>
 
           {/* WARNINGS */}
-          <div className="p-4 rounded-3xl bg-[#D2F4E2] border border-[#B9ECCE] flex flex-col justify-between">
-            <span className="text-[11px] font-extrabold text-[#065F46] uppercase tracking-wider">
+          <div className="p-4 rounded-3xl bg-amber-950/50 border border-amber-800/30 flex flex-col justify-between">
+            <span className="text-[11px] font-extrabold text-amber-300 uppercase tracking-wider">
               WARNINGS
             </span>
-            <span className="text-3xl font-extrabold text-[#065F46] font-mono mt-2">
+            <span className="text-3xl font-extrabold text-amber-300 font-mono mt-2">
               {stats.warn}
             </span>
           </div>
 
           {/* PENDING APPROVAL */}
-          <div className="p-4 rounded-3xl bg-[#FFE4C7] border border-[#FCD5AD] flex flex-col justify-between">
-            <span className="text-[11px] font-extrabold text-[#9A3412] uppercase tracking-wider">
+          <div className="p-4 rounded-3xl bg-orange-950/50 border border-orange-800/30 flex flex-col justify-between">
+            <span className="text-[11px] font-extrabold text-orange-300 uppercase tracking-wider">
               PENDING APPROVAL
             </span>
-            <span className="text-3xl font-extrabold text-[#9A3412] font-mono mt-2">
+            <span className="text-3xl font-extrabold text-orange-300 font-mono mt-2">
               {stats.pending}
             </span>
           </div>
 
           {/* BLOCKED */}
-          <div className="p-4 rounded-3xl bg-[#FCD4D4] border border-[#F8BEBE] flex flex-col justify-between">
-            <span className="text-[11px] font-extrabold text-[#991B1B] uppercase tracking-wider">
+          <div className="p-4 rounded-3xl bg-rose-950/50 border border-rose-800/30 flex flex-col justify-between">
+            <span className="text-[11px] font-extrabold text-rose-300 uppercase tracking-wider">
               BLOCKED
             </span>
-            <span className="text-3xl font-extrabold text-[#991B1B] font-mono mt-2">
+            <span className="text-3xl font-extrabold text-rose-300 font-mono mt-2">
               {stats.block}
             </span>
           </div>
@@ -202,8 +202,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setVerdictFilter('risky')}
             className={`w-full py-3 px-6 rounded-full text-xs font-extrabold uppercase tracking-wider text-center transition-all duration-200 shadow-sm ${
               verdictFilter === 'risky'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#F4F3ED] text-[#22252A] border border-[#E4E3DB] hover:bg-[#E5E3D9] hover:scale-[1.01]'
+                ? 'bg-gradient-to-r from-rose-700/30 to-amber-700/20 text-white shadow-md border border-rose-600/40'
+                : 'bg-[#0a1628]/70 text-slate-400 border border-cyan-900/20 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01]'
             }`}
           >
             RISKY (WARN/BLOCK)
@@ -214,8 +214,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setVerdictFilter('ALLOW')}
             className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
               verdictFilter === 'ALLOW'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+                ? 'bg-gradient-to-r from-cyan-700/30 to-teal-700/20 text-white shadow-md border border-cyan-600/40'
+                : 'bg-[#0a1628]/50 text-slate-400 border border-cyan-900/15 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01] shadow-xs'
             }`}
           >
             ALLOW
@@ -225,8 +225,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setVerdictFilter('WARN')}
             className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
               verdictFilter === 'WARN'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+                ? 'bg-gradient-to-r from-amber-700/30 to-yellow-700/20 text-white shadow-md border border-amber-600/40'
+                : 'bg-[#0a1628]/50 text-slate-400 border border-cyan-900/15 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01] shadow-xs'
             }`}
           >
             WARN
@@ -236,8 +236,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
             onClick={() => setVerdictFilter('BLOCK')}
             className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
               verdictFilter === 'BLOCK'
-                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
-                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+                ? 'bg-gradient-to-r from-rose-700/30 to-red-700/20 text-white shadow-md border border-rose-600/40'
+                : 'bg-[#0a1628]/50 text-slate-400 border border-cyan-900/15 hover:bg-[#0f1a30] hover:text-white hover:scale-[1.01] shadow-xs'
             }`}
           >
             BLOCK
@@ -248,16 +248,16 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
 
       {/* Clear Feed & Active Filter Indicator Toolbar */}
       <div className="flex items-center justify-between pt-2">
-        <div className="text-xs text-neutral-500 font-medium">
-          Showing <span className="font-bold text-neutral-900">{filteredItems.length}</span> event(s)
-          {sourceFilter !== 'all' && <span> • Source: <strong className="uppercase">{sourceFilter}</strong></span>}
-          {verdictFilter !== 'all' && <span> • Verdict: <strong className="uppercase">{verdictFilter}</strong></span>}
+        <div className="text-xs text-slate-400 font-medium">
+          Showing <span className="font-bold text-slate-100">{filteredItems.length}</span> event(s)
+          {sourceFilter !== 'all' && <span> • Source: <strong className="uppercase text-cyan-400">{sourceFilter}</strong></span>}
+          {verdictFilter !== 'all' && <span> • Verdict: <strong className="uppercase text-cyan-400">{verdictFilter}</strong></span>}
         </div>
 
         {items.length > 0 && (
           <button
             onClick={onClear}
-            className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 px-3.5 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 transition-colors border border-neutral-200/80"
+            className="text-xs font-semibold text-slate-400 hover:text-white px-3.5 py-1.5 rounded-xl bg-[#0a1628] hover:bg-[#0f1a30] transition-colors border border-cyan-900/20"
           >
             Clear Feed
           </button>
@@ -278,15 +278,15 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
         </div>
       ) : (
         <div className="theme-card p-12 text-center my-6">
-          <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-600 flex items-center justify-center mx-auto mb-3 text-xl shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-[#0a1628] text-slate-400 flex items-center justify-center mx-auto mb-3 text-xl shadow-xs border border-cyan-900/20">
             🛡️
           </div>
-          <h3 className="text-base font-semibold text-neutral-900 mb-1">
+          <h3 className="text-base font-semibold text-slate-100 mb-1">
             {items.length === 0
               ? 'Awaiting Intercepted Events'
               : 'No Events Match Selected Filters'}
           </h3>
-          <p className="text-xs text-neutral-500 max-w-md mx-auto leading-relaxed">
+          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
             {items.length === 0
               ? 'Trigger an action from the demo dropdown above or run an adapter simulation to see real-time risk evaluations appear live.'
               : 'Try selecting ALL SOURCES or RISKY (WARN/BLOCK) above to view all events.'}
