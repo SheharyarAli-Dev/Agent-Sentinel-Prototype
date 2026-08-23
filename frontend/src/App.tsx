@@ -321,12 +321,16 @@ export const App: React.FC = () => {
 
         {/* Main Title Heading with Smooth Reload Entrance & Hover Movement */}
         <h1 className="mt-8 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#0B0C10] leading-[1.12] max-w-3xl animate-hero-title-in [animation-delay:300ms] transition-all duration-500">
-          Govern AI Agent Actions Before They Become Real-World Effects
+          Agent Sentinel <br />
+          Built for Real Impact <br />
+          with Agent Action
         </h1>
 
         {/* Subtitle Paragraph with Smooth Fade Entrance */}
         <p className="mt-6 text-sm sm:text-base text-[#4A4B4D] leading-relaxed max-w-2xl font-sans animate-hero-fade-in [animation-delay:500ms]">
-          ASENT is a security middleware that evaluates and governs actions proposed by autonomous AI agents before those actions affect external systems.
+          An AI-native approach to building smarter, faster, and more scalable digital products.{' '}
+          We design and build solutions that transform how businesses operate with An AI-native{' '}
+          approach to securing autonomous decisions before by become real-world actions.
         </p>
 
 {/* Bottom Pill Box with Reload Entrance & Hover Effect */}
