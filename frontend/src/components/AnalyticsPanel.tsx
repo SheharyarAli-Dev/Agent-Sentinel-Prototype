@@ -214,7 +214,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ messages }) => {
   const stats = useMemo(() => {
     let allow = 0, warn = 0, block = 0, unblocked = 0
     let totalRisk = 0, totalLatency = 0
-    const sourceCounts: Record<string, number> = { transaction: 0, cursor: 0, n8n: 0 }
+    const sourceCounts: Record<string, number> = { transaction: 0, cursor: 0, n8n: 0, liveops: 0 }
     const moduleCounts: Record<string, number> = {}
     const recentRisks: number[] = []
 
@@ -279,6 +279,7 @@ items.forEach(({ event, decision }) => {
     { label: 'TRANS', value: stats.sourceCounts.transaction, color: '#93C5FD' },
     { label: 'CURSOR', value: stats.sourceCounts.cursor, color: '#C4B5FD' },
     { label: 'N8N', value: stats.sourceCounts.n8n, color: '#6EE7B7' },
+    { label: 'OPS', value: stats.sourceCounts.liveops, color: '#67E8F9' },
   ]
 
   // Module label mapping for display
@@ -472,10 +473,13 @@ items.forEach(({ event, decision }) => {
           )}
         </div>
 
-        {/* ── Verdict-Triggering Modules Leaderboard ────────────────────────────── */}
+        {/* ── Modules Recorded in Decision Evidence ────────────────────────────── */}
         <div className="theme-card p-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-3">
-            Verdict-Triggering Modules
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
+            Modules Recorded in Decision Evidence
+          </div>
+          <div className="text-[10px] text-neutral-400 mb-3">
+            Includes checks recorded during evaluation; not every listed module changed the final verdict.
           </div>
           {stats.topModules.length === 0 ? (
             <div className="text-xs text-neutral-400 text-center py-4">

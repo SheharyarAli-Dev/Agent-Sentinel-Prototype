@@ -139,6 +139,17 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
           >
             CURSOR
           </button>
+
+          <button
+            onClick={() => setSourceFilter('liveops')}
+            className={`w-full py-3 px-6 rounded-full text-xs font-semibold uppercase tracking-wider text-center transition-all duration-200 ${
+              sourceFilter === 'liveops'
+                ? 'bg-gradient-to-r from-[#E0DFD8] to-[#D8D6CF] text-[#1A1B1E] shadow-md border border-[#C8C6BE]'
+                : 'bg-[#FAF9F4] text-[#33353A] border border-[#E6E5DF] hover:bg-[#E5E3DA] hover:text-black hover:scale-[1.01] shadow-xs'
+            }`}
+          >
+            LIVEOPS
+          </button>
         </div>
 
         {/* ── CENTER COLUMN: 2x2 COLOR STATS GRID ─────────────────────────── */}
