@@ -271,23 +271,26 @@ export const App: React.FC = () => {
   }
 
   // WebSocket status pill matching top-right of screenshot
-  const statusBadge =
-    status === 'connected' ? (
-      <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] flex items-center gap-2 shadow-xs transition-all duration-300">
-        <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-pulse" />
-        Live Feed Connected
-      </span>
-    ) : status === 'connecting' ? (
-      <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] flex items-center gap-2 shadow-xs">
-        <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] animate-ping" />
-        Connecting...
-      </span>
-    ) : (
-      <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA] flex items-center gap-2 shadow-xs">
-        <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
-        Disconnected
-      </span>
-    )
+  const statusBadge = (
+    <div role="status" aria-live="polite">
+      {status === 'connected' ? (
+        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] flex items-center gap-2 shadow-xs transition-all duration-300">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-pulse" />
+          Live Feed Connected
+        </span>
+      ) : status === 'connecting' ? (
+        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] flex items-center gap-2 shadow-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] animate-ping" />
+          Connecting...
+        </span>
+      ) : (
+        <span className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA] flex items-center gap-2 shadow-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
+          Disconnected
+        </span>
+      )}
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-[#F8F7F2] text-[#0F0F0F] relative overflow-x-hidden selection:bg-neutral-900 selection:text-white">
@@ -310,29 +313,25 @@ export const App: React.FC = () => {
       {/* ── Hero Section (100% Aligned with Screenshot + Reload & Hover Transitions) ── */}
       <section className="relative z-10 max-w-5xl mx-auto px-6 pt-10 pb-16 text-center flex flex-col items-center justify-center min-h-[78vh]">
         {/* Top Pill Box with Reload Entrance & Hover Effect */}
-        <div className="animate-hero-title-in [animation-delay:100ms] cursor-pointer">
-          <div className="px-4.5 py-2 rounded-full bg-[#E7E6DF] border border-[#D8D7CE] text-[#333436] text-xs font-medium inline-flex items-center shadow-xs transition-all duration-300 hover:scale-105 hover:bg-[#DDDCD4] hover:border-[#C8C7BE] hover:shadow-md">
+        <div className="animate-hero-title-in [animation-delay:100ms]">
+          <div className="px-4.5 py-2 rounded-full bg-[#E7E6DF] border border-[#D8D7CE] text-[#333436] text-xs font-medium inline-flex items-center shadow-xs">
             AI powered engineering with FYP Prototype
           </div>
         </div>
 
         {/* Main Title Heading with Smooth Reload Entrance & Hover Movement */}
-        <h1 className="mt-8 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#0B0C10] leading-[1.12] max-w-3xl animate-hero-title-in [animation-delay:300ms] cursor-pointer transition-all duration-500 hover:scale-[1.018] hover:text-black hover:tracking-normal">
-          Agent Sentinel <br />
-          Built for Real Impact <br />
-          with Agent Action
+        <h1 className="mt-8 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#0B0C10] leading-[1.12] max-w-3xl animate-hero-title-in [animation-delay:300ms] transition-all duration-500">
+          Govern AI Agent Actions Before They Become Real-World Effects
         </h1>
 
         {/* Subtitle Paragraph with Smooth Fade Entrance */}
-        <p className="mt-6 text-sm sm:text-base text-[#4A4B4D] leading-relaxed max-w-2xl font-sans animate-hero-fade-in [animation-delay:500ms] transition-colors duration-300 hover:text-[#1F2022]">
-          An AI-native approach to building smarter, faster, and more scalable digital products.{' '}
-          We design and build solutions that transform how businesses operate with An AI-native{' '}
-          approach to securing autonomous decisions before by become real-world actions.
+        <p className="mt-6 text-sm sm:text-base text-[#4A4B4D] leading-relaxed max-w-2xl font-sans animate-hero-fade-in [animation-delay:500ms]">
+          ASENT is a security middleware that evaluates and governs actions proposed by autonomous AI agents before those actions affect external systems.
         </p>
 
 {/* Bottom Pill Box with Reload Entrance & Hover Effect */}
-        <div className="mt-14 animate-hero-title-in [animation-delay:700ms] cursor-pointer">
-          <div className="px-6 py-2.5 rounded-full bg-[#E5E4DD]/90 border border-[#D5D4CC] text-[#2C2D30] text-xs sm:text-sm font-medium shadow-xs inline-flex items-center transition-all duration-300 hover:scale-105 hover:bg-[#DDDCD4] hover:border-[#C8C7BE] hover:shadow-md">
+        <div className="mt-14 animate-hero-title-in [animation-delay:700ms]">
+          <div className="px-6 py-2.5 rounded-full bg-[#E5E4DD]/90 border border-[#D5D4CC] text-[#2C2D30] text-xs sm:text-sm font-medium shadow-xs inline-flex items-center">
             Shared Agent-Action Governance Core
           </div>
           <div className="mt-2 text-xs text-[#6B6C70] max-w-2xl mx-auto leading-relaxed">

@@ -144,7 +144,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
         {/* ── CENTER COLUMN: 2x2 COLOR STATS GRID ─────────────────────────── */}
         <div className="lg:col-span-4 grid grid-cols-2 gap-3.5">
           {/* ALLOWED */}
-          <div className="p-4 rounded-3xl bg-[#D6EEFF] border border-[#BCE1FC] flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:bg-[#C4E5FF] hover:shadow-md cursor-pointer">
+          <div className="p-4 rounded-3xl bg-[#D6EEFF] border border-[#BCE1FC] flex flex-col justify-between">
             <span className="text-[11px] font-extrabold text-[#0C4A6E] uppercase tracking-wider">
               ALLOWED
             </span>
@@ -154,7 +154,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
           </div>
 
           {/* WARNINGS */}
-          <div className="p-4 rounded-3xl bg-[#D2F4E2] border border-[#B9ECCE] flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:bg-[#BFEFDC] hover:shadow-md cursor-pointer">
+          <div className="p-4 rounded-3xl bg-[#D2F4E2] border border-[#B9ECCE] flex flex-col justify-between">
             <span className="text-[11px] font-extrabold text-[#065F46] uppercase tracking-wider">
               WARNINGS
             </span>
@@ -164,7 +164,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
           </div>
 
           {/* PENDING APPROVAL */}
-          <div className="p-4 rounded-3xl bg-[#FFE4C7] border border-[#FCD5AD] flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:bg-[#FDDAB6] hover:shadow-md cursor-pointer">
+          <div className="p-4 rounded-3xl bg-[#FFE4C7] border border-[#FCD5AD] flex flex-col justify-between">
             <span className="text-[11px] font-extrabold text-[#9A3412] uppercase tracking-wider">
               PENDING APPROVAL
             </span>
@@ -174,7 +174,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
           </div>
 
           {/* BLOCKED */}
-          <div className="p-4 rounded-3xl bg-[#FCD4D4] border border-[#F8BEBE] flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:bg-[#F9C3C3] hover:shadow-md cursor-pointer">
+          <div className="p-4 rounded-3xl bg-[#FCD4D4] border border-[#F8BEBE] flex flex-col justify-between">
             <span className="text-[11px] font-extrabold text-[#991B1B] uppercase tracking-wider">
               BLOCKED
             </span>
