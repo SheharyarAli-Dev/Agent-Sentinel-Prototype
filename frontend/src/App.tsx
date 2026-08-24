@@ -320,22 +320,35 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Circuit-inspired angular accent */}
-        <div className="mt-8 mb-5 flex items-center justify-center gap-0">
-          <div className="w-8 h-px bg-gradient-to-r from-transparent to-cyan-500/40" />
-          <div className="w-3 h-px bg-cyan-500/50 rotate-45 origin-left" />
-          <div className="w-12 h-px bg-gradient-to-r from-cyan-500/50 to-teal-500/40" />
-          <div className="w-3 h-px bg-teal-500/50 -rotate-45 origin-right" />
-          <div className="w-8 h-px bg-gradient-to-r from-teal-500/40 to-transparent" />
+        {/* ASENT Logo */}
+        <div className="mt-6 mb-2 animate-hero-title-in [animation-delay:200ms]">
+          <img
+            src="/asent_stacked.png"
+            alt="ASENT Agent Sentinel logo"
+            className="w-36 sm:w-40 md:w-44 lg:w-[180px] h-auto object-contain mx-auto"
+          />
         </div>
 
-        {/* Main Title Heading */}
-        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[3rem] font-black tracking-[-0.04em] leading-[1.10] max-w-3xl animate-hero-title-in [animation-delay:300ms]">
-          <span className="text-[0.82em]" style={{ color: '#DCEBFF' }}>Agent Sentinel</span>
-          <br />
-          <span className="text-[1.05em] bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent" style={{ textShadow: '0 0 30px rgba(34,211,238,0.15)' }}>Built for Real Impact</span>
-          <br />
-          <span className="text-[0.78em]" style={{ color: '#AFC4DE' }}>with Agent Action</span>
+        {/* Circuit-brand accent — integrated with logo */}
+        <div className="my-4 flex items-center justify-center gap-0">
+          <div className="w-10 h-px bg-gradient-to-r from-transparent to-cyan-500/50" />
+          <div className="w-2.5 h-px bg-cyan-500/60 rotate-[40deg] origin-left" />
+          <div className="w-14 h-px bg-gradient-to-r from-cyan-500/50 via-violet-500/25 to-teal-500/50" />
+          <div className="w-2.5 h-px bg-teal-500/60 -rotate-[40deg] origin-right" />
+          <div className="w-10 h-px bg-gradient-to-r from-teal-500/50 to-transparent" />
+        </div>
+
+        {/* Main Title Heading — block rows with explicit spacing */}
+        <h1 className="max-w-3xl mx-auto animate-hero-title-in [animation-delay:300ms]">
+          <span className="block text-xl sm:text-2xl md:text-3xl lg:text-[2.4rem] font-black tracking-[0.12em] uppercase leading-none mb-2" style={{ color: '#DCEBFF' }}>
+            Agent Sentinel
+          </span>
+          <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-[3.1rem] font-black tracking-[-0.02em] leading-none mb-2.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-violet-400 bg-clip-text text-transparent" style={{ textShadow: '0 0 24px rgba(10,18,32,0.9)' }}>
+            Built for Real Impact
+          </span>
+          <span className="block text-lg sm:text-xl md:text-2xl lg:text-[1.85rem] font-extrabold tracking-[0.03em] leading-none" style={{ color: '#AFC4DE' }}>
+            with Agent Action
+          </span>
         </h1>
 
         {/* Subtitle Paragraph */}
