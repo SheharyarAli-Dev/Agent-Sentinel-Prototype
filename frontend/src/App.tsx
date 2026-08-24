@@ -320,20 +320,23 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Decorative accent rule above heading */}
-        <div className="mt-8 mb-4 h-px w-28 mx-auto bg-gradient-to-r from-transparent via-cyan-600/50 to-transparent" />
+        {/* Circuit-inspired angular accent */}
+        <div className="mt-8 mb-5 flex items-center justify-center gap-0">
+          <div className="w-8 h-px bg-gradient-to-r from-transparent to-cyan-500/40" />
+          <div className="w-3 h-px bg-cyan-500/50 rotate-45 origin-left" />
+          <div className="w-12 h-px bg-gradient-to-r from-cyan-500/50 to-teal-500/40" />
+          <div className="w-3 h-px bg-teal-500/50 -rotate-45 origin-right" />
+          <div className="w-8 h-px bg-gradient-to-r from-teal-500/40 to-transparent" />
+        </div>
 
         {/* Main Title Heading */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-extrabold tracking-[-0.03em] leading-[1.12] max-w-3xl animate-hero-title-in [animation-delay:300ms]">
-          <span style={{ color: '#DCEBFF' }}>Agent Sentinel</span>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[3rem] font-black tracking-[-0.04em] leading-[1.10] max-w-3xl animate-hero-title-in [animation-delay:300ms]">
+          <span className="text-[0.82em]" style={{ color: '#DCEBFF' }}>Agent Sentinel</span>
           <br />
-          <span className="bg-gradient-to-r from-cyan-500 to-teal-400 bg-clip-text text-transparent">Built for Real Impact</span>
+          <span className="text-[1.05em] bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent" style={{ textShadow: '0 0 30px rgba(34,211,238,0.15)' }}>Built for Real Impact</span>
           <br />
-          <span style={{ color: '#AFC4DE' }}>with Agent Action</span>
+          <span className="text-[0.78em]" style={{ color: '#AFC4DE' }}>with Agent Action</span>
         </h1>
-
-        {/* Decorative accent rule below heading */}
-        <div className="mt-4 mb-2 h-px w-28 mx-auto bg-gradient-to-r from-transparent via-teal-600/40 to-transparent" />
 
         {/* Subtitle Paragraph */}
         <p className="mt-6 text-sm sm:text-[15px] leading-[1.75] max-w-2xl font-sans animate-hero-fade-in [animation-delay:500ms]" style={{ color: '#A8B7CC' }}>
