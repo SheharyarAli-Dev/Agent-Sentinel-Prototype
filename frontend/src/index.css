@@ -61,6 +61,14 @@
     @apply hover:bg-slate-800/75 hover:border-slate-600/70 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300;
   }
 
+  /* Static card — restrained hover, not clickable */
+  .static-card {
+    @apply cursor-default transition-all duration-200;
+  }
+  .static-card:hover {
+    @apply border-slate-600/60 shadow-md bg-slate-800/5;
+  }
+
   /* Modal backdrop */
   .modal-backdrop {
     @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4;

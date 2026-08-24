@@ -363,7 +363,7 @@ items.forEach(({ event, decision }) => {
           ].map((kpi) => (
             <div
               key={kpi.label}
-              className={`${kpi.bg} border ${kpi.border} rounded-2xl p-3.5 transition-all duration-300 hover:shadow-md`}
+              className={`${kpi.bg} border ${kpi.border} rounded-2xl p-3.5 static-card`}
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                 {kpi.label}

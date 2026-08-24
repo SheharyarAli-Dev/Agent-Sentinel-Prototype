@@ -155,7 +155,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
         {/* ── CENTER COLUMN: 2x2 COLOR STATS GRID ─────────────────────────── */}
         <div className="lg:col-span-4 grid grid-cols-2 gap-3.5">
           {/* ALLOWED */}
-          <div className="p-4 rounded-3xl bg-emerald-950/50 border border-emerald-800/30 flex flex-col justify-between">
+          <div className="p-4 rounded-3xl bg-emerald-950/50 border border-emerald-800/30 flex flex-col justify-between static-card">
             <span className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wider">
               ALLOWED
             </span>
@@ -165,7 +165,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
           </div>
 
           {/* WARNINGS */}
-          <div className="p-4 rounded-3xl bg-amber-950/50 border border-amber-800/30 flex flex-col justify-between">
+          <div className="p-4 rounded-3xl bg-amber-950/50 border border-amber-800/30 flex flex-col justify-between static-card">
             <span className="text-[11px] font-extrabold text-amber-300 uppercase tracking-wider">
               WARNINGS
             </span>
@@ -175,7 +175,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
           </div>
 
           {/* PENDING APPROVAL */}
-          <div className="p-4 rounded-3xl bg-orange-950/50 border border-orange-800/30 flex flex-col justify-between">
+          <div className="p-4 rounded-3xl bg-orange-950/50 border border-orange-800/30 flex flex-col justify-between static-card">
             <span className="text-[11px] font-extrabold text-orange-300 uppercase tracking-wider">
               PENDING APPROVAL
             </span>
@@ -185,7 +185,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({
           </div>
 
           {/* BLOCKED */}
-          <div className="p-4 rounded-3xl bg-rose-950/50 border border-rose-800/30 flex flex-col justify-between">
+          <div className="p-4 rounded-3xl bg-rose-950/50 border border-rose-800/30 flex flex-col justify-between static-card">
             <span className="text-[11px] font-extrabold text-rose-300 uppercase tracking-wider">
               BLOCKED
             </span>
