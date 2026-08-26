@@ -112,40 +112,6 @@ class CanonicalAction(BaseModel):
         )
 
 
-class ExpectedOutcome(BaseModel):
-    """
-    Expected outcome for authorized outcome verification.
-
-    This defines what the system expects to observe after a successful execution
-    within the bounded simulated LiveOps model. This is NOT a generic cloud
-    reconciliation — it is bounded to the supported simulated LiveOps model.
-    """
-    # Target resource that should be affected
-    target_resource: str
-
-    # Expected state transition (e.g., "running" -> "stopped", "present" -> "absent")
-    allowed_state_transition: Optional[str] = None
-
-    # Permitted mutations on the target resource (e.g., ["state", "metadata"])
-    permitted_mutations: list[str] = Field(default_factory=list)
-
-    # Protected-resource invariants that must remain unchanged
-    protected_invariants: list[str] = Field(default_factory=list)
-
-    # Expected final state of the target resource (for exact matching)
-    expected_final_state: Optional[dict[str, Any]] = None
-
-    def to_canonical_json(self) -> str:
-        """Serialize to canonical JSON for fingerprinting."""
-        # Sort keys for deterministic serialization
-        return json.dumps(
-            self.model_dump(exclude_none=True, mode="json"),
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        )
-
-
 # ── Outcome Verification Models ───────────────────────────────────────────────────
 
 class VerificationStatus(str, Enum):
@@ -575,12 +541,12 @@ def verify_outcome(
     # Extract observed state for the target resource
     observed_resource_state = None
     for vm in observed_state.get("vms", []):
-        if vm["id"] == target:
+        if vm["id"] == target_resource:
             observed_resource_state = vm
             break
 
     for snap in observed_state.get("snapshots", []):
-        if snap["id"] == target:
+        if snap["id"] == target_resource:
             observed_resource_state = snap
             break
 

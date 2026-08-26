@@ -68,7 +68,7 @@ from app.models.liveops_execution import (
     LiveOpsExecutionORM,
     LiveOpsExecutionResponse,
 )
-from app.models.operation import OperationORM, update_operation_state, verify_outcome, OutcomeVerificationResult, build_canonical_action, compute_action_fingerprint, verify_outcome, OutcomeVerificationResult
+from app.models.operation import OperationORM, update_operation_state, verify_outcome, OutcomeVerificationResult, build_canonical_action, compute_action_fingerprint
 from app.sandbox.simulated_cloud import SimulatedCloud
 
 logger = logging.getLogger(__name__)
