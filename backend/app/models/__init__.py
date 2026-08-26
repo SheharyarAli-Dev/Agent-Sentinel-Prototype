@@ -7,6 +7,7 @@ from app.models.decision import (
     HumanDecisionRequest,
     EvaluateResponse,
 )
+from app.models.coding_execution import CodingExecutionORM, CodingExecutionResponse
 
 __all__ = [
     "EventCreate",
@@ -17,4 +18,6 @@ __all__ = [
     "DecisionResponse",
     "HumanDecisionRequest",
     "EvaluateResponse",
+    "CodingExecutionORM",
+    "CodingExecutionResponse",
 ]
