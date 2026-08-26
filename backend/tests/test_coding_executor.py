@@ -21,6 +21,15 @@ Covers:
   - Concurrency serialization
   - Independent workspace instances
   - No subprocess, network, or shell execution mechanisms
+  - Evidence-collection failure restoration
+  - Restoration failure (double-failure)
+  - Bytes-based snapshot hashing consistency
+  - Workspace-wide serialization
+  - Simultaneous different-file writes
+  - Unexpected new file detection
+  - Unexpected deleted file detection
+  - Unexpected seeded-file modification
+  - Controlled temporary-file exclusion
 """
 from __future__ import annotations
 
@@ -28,6 +37,7 @@ import hashlib
 import json
 import os
 import shutil
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -785,6 +795,302 @@ class TestNoExecutionMechanisms:
         assert not violations, (
             f"Forbidden imports found in coding_executor.py: {violations}"
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 30. Evidence-collection failure triggers restoration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestEvidenceCollectionFailure:
+    def test_evidence_collection_failure_triggers_restoration(self, monkeypatch):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            proposal = _make_proposal()
+            seed = _load_seed()
+            original_hash = seed["files"]["src/status.py"]["hash"]
+            original_snapshot = executor_module.CodingWorkspace._snapshot_workspace
+            call_count = 0
+
+            def _fail_on_second_snapshot(self, workspace: Path) -> dict[str, str]:
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return original_snapshot(self, workspace)
+                raise OSError("Simulated evidence collection failure")
+
+            monkeypatch.setattr(
+                executor_module.CodingWorkspace, "_snapshot_workspace",
+                _fail_on_second_snapshot
+            )
+            result = ws.execute_file_write(proposal)
+            assert result.status == "failed"
+            assert result.error_code == "FAILED_EVIDENCE_COLLECTION"
+            assert result.restoration_attempted
+            assert result.restoration_succeeded is True
+            runtime_status = ws.runtime_root / "coding-demo" / "src" / "status.py"
+            assert _file_hash(runtime_status) == original_hash
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 31. Restoration failure after write failure (double-failure)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestRestorationFailure:
+    def test_restoration_failure_after_write_error(self, monkeypatch):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            proposal = _make_proposal()
+            original_atomic = executor_module._atomic_write
+            call_count = 0
+
+            def _double_fail(target: Path, content: str) -> None:
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise OSError("Write failed")
+                else:
+                    raise OSError("Restoration also failed")
+
+            monkeypatch.setattr(executor_module, "_atomic_write", _double_fail)
+            monkeypatch.setattr(executor_module, "_atomic_write_bytes", _double_fail)
+            result = ws.execute_file_write(proposal)
+            assert result.status == "failed"
+            assert result.error_code == "FAILED_WRITE"
+            assert result.restoration_attempted
+            assert result.restoration_succeeded is False
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 32. Bytes-based snapshot hashing consistency
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestBytesBasedHashing:
+    def test_snapshot_uses_bytes_not_text(self):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            workspace = ws.runtime_root / "coding-demo"
+            snapshot = ws._snapshot_workspace(workspace)
+            seed = _load_seed()
+            for rel_path, info in seed.get("files", {}).items():
+                if rel_path in snapshot:
+                    file_bytes = (workspace / rel_path).read_bytes()
+                    expected_hash = hashlib.sha256(file_bytes).hexdigest()
+                    assert snapshot[rel_path] == expected_hash, (
+                        f"Hash mismatch for {rel_path}: "
+                        f"snapshot={snapshot[rel_path][:16]}..., "
+                        f"expected={expected_hash[:16]}..."
+                    )
+        finally:
+            ws.cleanup()
+
+    def test_hash_matches_seed_for_all_files(self):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            workspace = ws.runtime_root / "coding-demo"
+            snapshot = ws._snapshot_workspace(workspace)
+            seed = _load_seed()
+            for rel_path, info in seed.get("files", {}).items():
+                assert rel_path in snapshot, f"Missing from snapshot: {rel_path}"
+                assert snapshot[rel_path] == info["hash"], (
+                    f"Hash mismatch for {rel_path}"
+                )
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 33. Workspace-wide serialization
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestWorkspaceWideSerialization:
+    def test_concurrent_different_files_serialized(self):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            seed = _load_seed()
+            status_hash = seed["files"]["src/status.py"]["hash"]
+            test_status_hash = seed["files"]["tests/test_status.py"]["hash"]
+            proposal_status = _make_proposal(
+                relative_path="src/status.py",
+                new_content="def get_status():\n    return {'v': 'status'}\n",
+            )
+            proposal_test = _make_proposal(
+                relative_path="tests/test_status.py",
+                new_content="# test_status\nimport pytest\n",
+                expected_old_hash=test_status_hash,
+                expected_new_hash=_sha256("# test_status\nimport pytest\n"),
+            )
+            barrier = threading.Barrier(2)
+            results: list[CodingExecutionResult] = []
+
+            def _write(proposal: CodingProposal, auth: bool = False) -> None:
+                barrier.wait(timeout=5)
+                results.append(ws.execute_file_write(proposal, review_authorized=auth))
+
+            t1 = threading.Thread(target=_write, args=(proposal_status,))
+            t2 = threading.Thread(target=_write, args=(proposal_test, True))
+            t1.start()
+            t2.start()
+            t1.join(timeout=10)
+            t2.join(timeout=10)
+            assert len(results) == 2
+            assert all(r.status == "executed" for r in results)
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 34. Simultaneous different-file writes succeed independently
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestSimultaneousDifferentFiles:
+    def test_different_files_write_independently(self):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            seed = _load_seed()
+            proposal_status = _make_proposal(
+                relative_path="src/status.py",
+                new_content="def get_status():\n    return {'v': 'x'}\n",
+            )
+            proposal_test = _make_proposal(
+                relative_path="tests/test_status.py",
+                new_content="# updated test\n",
+                expected_old_hash=seed["files"]["tests/test_status.py"]["hash"],
+                expected_new_hash=_sha256("# updated test\n"),
+            )
+            result1 = ws.execute_file_write(proposal_status)
+            assert result1.status == "executed"
+            result2 = ws.execute_file_write(
+                proposal_test, review_authorized=True
+            )
+            assert result2.status == "executed"
+            runtime_status = ws.runtime_root / "coding-demo" / "src" / "status.py"
+            runtime_test = ws.runtime_root / "coding-demo" / "tests" / "test_status.py"
+            assert runtime_status.read_text(encoding="utf-8") == proposal_status.new_content
+            assert runtime_test.read_text(encoding="utf-8") == "# updated test\n"
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 35. Unexpected new file detection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestUnexpectedNewFile:
+    def test_new_file_detected_as_unexpected_change(self, monkeypatch):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            proposal = _make_proposal()
+            original_atomic = executor_module._atomic_write
+            workspace = ws.runtime_root / "coding-demo"
+
+            def _write_with_new_file(target: Path, content: str) -> None:
+                original_atomic(target, content)
+                (workspace / "src" / "malicious.py").write_text(
+                    "evil", encoding="utf-8"
+                )
+
+            monkeypatch.setattr(executor_module, "_atomic_write", _write_with_new_file)
+            result = ws.execute_file_write(proposal)
+            assert result.status == "failed"
+            assert result.error_code == "FAILED_UNEXPECTED_CHANGES"
+            assert "src/malicious.py" in result.unexpected_changes
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 36. Unexpected deleted file detection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestUnexpectedDeletedFile:
+    def test_deleted_file_detected_as_unexpected_change(self, monkeypatch):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            proposal = _make_proposal()
+            original_atomic = executor_module._atomic_write
+            workspace = ws.runtime_root / "coding-demo"
+
+            def _write_with_deletion(target: Path, content: str) -> None:
+                original_atomic(target, content)
+                (workspace / "tests" / "test_status.py").unlink()
+
+            monkeypatch.setattr(executor_module, "_atomic_write", _write_with_deletion)
+            result = ws.execute_file_write(proposal)
+            assert result.status == "failed"
+            assert result.error_code == "FAILED_UNEXPECTED_CHANGES"
+            assert "tests/test_status.py" in result.unexpected_changes
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 37. Unexpected seeded-file modification detection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestUnexpectedSeededFileModification:
+    def test_seeded_file_modification_detected(self, monkeypatch):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            proposal = _make_proposal()
+            original_atomic = executor_module._atomic_write
+            workspace = ws.runtime_root / "coding-demo"
+
+            def _write_with_config_tamper(target: Path, content: str) -> None:
+                original_atomic(target, content)
+                (workspace / "config" / "app.json").write_text(
+                    '{"tampered": true}', encoding="utf-8"
+                )
+
+            monkeypatch.setattr(executor_module, "_atomic_write", _write_with_config_tamper)
+            result = ws.execute_file_write(proposal)
+            assert result.status == "failed"
+            assert result.error_code == "FAILED_UNEXPECTED_CHANGES"
+            assert "config/app.json" in result.unexpected_changes
+        finally:
+            ws.cleanup()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 38. Controlled temporary-file exclusion from snapshot
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestTempFileExclusion:
+    def test_tmp_files_excluded_from_snapshot(self):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            workspace = ws.runtime_root / "coding-demo"
+            (workspace / "src" / "dummy.tmp").write_text("temp", encoding="utf-8")
+            (workspace / "src" / "another.tmp").write_text("temp2", encoding="utf-8")
+            snapshot = ws._snapshot_workspace(workspace)
+            assert "src/dummy.tmp" not in snapshot
+            assert "src/another.tmp" not in snapshot
+        finally:
+            ws.cleanup()
+
+    def test_non_tmp_files_included_in_snapshot(self):
+        ws = CodingWorkspace(fixture_root=_DEMO_ROOT, seed_path=_SEED)
+        ws.copy_demo()
+        try:
+            workspace = ws.runtime_root / "coding-demo"
+            (workspace / "src" / "normal.py").write_text("code", encoding="utf-8")
+            snapshot = ws._snapshot_workspace(workspace)
+            assert "src/normal.py" in snapshot
+        finally:
+            ws.cleanup()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

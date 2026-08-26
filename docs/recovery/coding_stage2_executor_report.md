@@ -60,12 +60,12 @@ These paths are fixed internally to the `coding_executor.py` module. They are NO
 
 ## 4. Lock Strategy
 
-Each `CodingWorkspace` owns a per-instance `_PathLockRegistry`:
+Each `CodingWorkspace` owns a workspace-level `threading.RLock`:
 
-- One `threading.RLock` per normalized relative path.
-- Validation, old-hash check, write, after-hash check, and evidence capture all occur while holding that path lock.
+- The full evidence transaction (validation, old-hash check, write, after-hash check, and evidence capture) is serialized by this lock.
 - Different workspace instances remain independent (no global lock sharing).
-- Two concurrent writes to the same target in the same workspace are serialized.
+- Two concurrent writes to the same workspace are serialized.
+- Two concurrent writes to different files within the same workspace are also serialized (workspace-level, not per-path).
 - Only one write with the same `expected_old_hash` can succeed; the second sees the updated hash and is rejected.
 
 ---
@@ -122,47 +122,59 @@ Then:
 | `FAILED_HASH_VERIFICATION` | After-hash does not match expected_new_hash |
 | `FAILED_UNEXPECTED_CHANGES` | Secondary files changed unexpectedly |
 | `FAILED_RESTORATION` | Restoration after failure also failed |
+| `FAILED_EVIDENCE_COLLECTION` | Evidence collection failed, triggering restoration |
 
 ---
 
 ## 8. Tests Added
 
-**File:** `backend/tests/test_coding_executor.py` — 32 tests (31 passed, 1 skipped)
+**File:** `backend/tests/test_coding_executor.py` — 43 tests (42 passed, 1 skipped)
 
 | # | Test | Status |
 |---|------|--------|
 | 1 | Allowed file write succeeds | PASSED |
-| 2 | Tracked fixture remains unchanged | PASSED |
-| 3 | Runtime copy receives expected content | PASSED |
-| 4 | Before hash matches seed | PASSED |
-| 5 | After hash equals expected_new_hash | PASSED |
-| 6 | Old-hash mismatch rejects before writing | PASSED |
-| 7 | Protected target rejects at execution time | PASSED |
-| 8 | Sensitive target rejects without auth | PASSED |
-| 9 | Sensitive target accepted with auth | PASSED |
-| 10 | Unix absolute path rejects | PASSED |
-| 11 | Windows drive path rejects | PASSED |
-| 12 | UNC path rejects | PASSED |
-| 13 | Traversal rejects | PASSED |
-| 14 | Mixed-separator traversal rejects | PASSED |
-| 15 | Null byte rejects | PASSED |
-| 16 | Symlink target rejects | SKIPPED |
-| 17 | Missing target rejects | PASSED |
-| 18 | Size limit enforced | PASSED |
-| 19 | Atomic replacement leaves no temp file | PASSED |
-| 20 | Simulated write failure preserves content | PASSED |
-| 21 | Simulated after-hash failure restores | PASSED |
-| 22 | Unexpected secondary-file change detected | PASSED |
-| 23 | Fixture unchanged after write failure | PASSED |
-| 24 | Fixture unchanged after hash failure | PASSED |
-| 25 | Fixture unchanged after unexpected change | PASSED |
-| 26 | Production constructor cannot accept custom runtime root | PASSED |
-| 27 | Copied fixture failing seed verification rejected | PASSED |
-| 28 | Two simultaneous writes serialized | PASSED |
-| 29 | Only one same-old-hash write succeeds | PASSED |
-| 30 | Different workspace instances independent | PASSED |
-| 31 | No subprocess/network mechanisms | PASSED |
-| 32 | Executed-at is populated | PASSED |
+| 2 | Executed-at is populated | PASSED |
+| 3 | Tracked fixture remains unchanged | PASSED |
+| 4 | Runtime copy receives expected content | PASSED |
+| 5 | Before hash matches seed | PASSED |
+| 6 | After hash equals expected_new_hash | PASSED |
+| 7 | Old-hash mismatch rejects before writing | PASSED |
+| 8 | Protected target rejects at execution time | PASSED |
+| 9 | Sensitive target rejects without auth | PASSED |
+| 10 | Sensitive target accepted with auth | PASSED |
+| 11 | Unix absolute path rejects | PASSED |
+| 12 | Windows drive path rejects | PASSED |
+| 13 | UNC path rejects | PASSED |
+| 14 | Traversal rejects | PASSED |
+| 15 | Mixed-separator traversal rejects | PASSED |
+| 16 | Null byte rejects | PASSED |
+| 17 | Symlink target rejects | SKIPPED |
+| 18 | Missing target rejects | PASSED |
+| 19 | Size limit enforced | PASSED |
+| 20 | Atomic replacement leaves no temp file | PASSED |
+| 21 | Simulated write failure preserves content | PASSED |
+| 22 | Simulated after-hash failure restores | PASSED |
+| 23 | Unexpected secondary-file change detected | PASSED |
+| 24 | Fixture unchanged after write failure | PASSED |
+| 25 | Fixture unchanged after hash failure | PASSED |
+| 26 | Fixture unchanged after unexpected change | PASSED |
+| 27 | Production constructor cannot accept custom runtime root | PASSED |
+| 28 | Copied fixture failing seed verification rejected | PASSED |
+| 29 | Two simultaneous writes serialized | PASSED |
+| 30 | Only one same-old-hash write succeeds | PASSED |
+| 31 | Different workspace instances independent | PASSED |
+| 32 | No subprocess/network mechanisms | PASSED |
+| 33 | Evidence-collection failure triggers restoration | PASSED |
+| 34 | Restoration failure after write error (double-failure) | PASSED |
+| 35 | Snapshot uses bytes not text (bytes-based hashing) | PASSED |
+| 36 | Hash matches seed for all files | PASSED |
+| 37 | Concurrent different files serialized | PASSED |
+| 38 | Different files write independently | PASSED |
+| 39 | New file detected as unexpected change | PASSED |
+| 40 | Deleted file detected as unexpected change | PASSED |
+| 41 | Seeded-file modification detected | PASSED |
+| 42 | Temporary files excluded from snapshot | PASSED |
+| 43 | Non-temp files included in snapshot | PASSED |
 
 ---
 
@@ -170,11 +182,11 @@ Then:
 
 | Run | Collected | Passed | Skipped | Duration |
 |-----|-----------|--------|---------|----------|
-| Run 1 | 365 | 363 | 2 | 14.81s |
-| Run 2 | 365 | 363 | 2 | 15.02s |
-| Run 3 | 365 | 363 | 2 | 18.03s |
+| Run 1 | 376 | 374 | 2 | 16.49s |
+| Run 2 | 376 | 374 | 2 | 17.14s |
+| Run 3 | 376 | 374 | 2 | 16.90s |
 
-Suite count: 332 → 363 (+31 new tests from `test_coding_executor.py`, 1 new skipped symlink test).
+Suite count: 332 → 374 (+42 new tests from `test_coding_executor.py`, +1 new skipped symlink test).
 
 ---
 
@@ -187,7 +199,7 @@ Suite count: 332 → 363 (+31 new tests from `test_coding_executor.py`, 1 new sk
 ## 11. Frontend Build
 
 ```
-✓ built in 6.92s
+✓ built in 6.44s
 93 modules transformed
 dist/index.html                 1.12 kB │ gzip:  0.62 kB
 dist/assets/index-DJSaANO6.css  40.21 kB │ gzip:  7.43 kB
@@ -206,7 +218,7 @@ dist/assets/index-DhJhHeoe.js  268.21 kB │ gzip: 83.09 kB
 | torch 2.13.0+cpu | OK |
 | sentence-transformers 5.7.0 | OK |
 | MiniLM model cache | OK |
-| pytest | 363 passed, 2 skipped in 16.54s |
+| pytest | 374 passed, 2 skipped in 16.90s |
 | npm run build | OK |
 | Ports 8000/5173 | Available |
 | **Result** | **READY** |
@@ -236,11 +248,31 @@ All 4 tracked coding-demo fixture hashes remain unchanged.
 
 4. **No content inspection.** The executor does not inspect file content for secrets, injection, or malicious patterns. Content validation is the responsibility of the policy layer.
 
-5. **Single-process concurrency only.** The per-path lock registry is process-level (`threading.RLock`). Cross-process concurrent writes are not protected.
+5. **Single-process concurrency only.** The workspace-level lock is process-level (`threading.RLock`). Cross-process concurrent writes are not protected.
 
 ---
 
-## 15. Exact Stage 3 Boundary
+## 15. Post-Audit Corrections (This Commit)
+
+All five audit findings have been addressed:
+
+1. **Dead `preserve_runtime` parameter removed.** The executor no longer accepts or exposes this parameter.
+
+2. **Workspace-level serialization.** Replaced per-path lock registry with a single workspace-level `threading.RLock`. This simplifies the locking model and ensures full evidence transactions are atomic.
+
+3. **Bytes-based snapshot hashing.** `_snapshot_workspace` now reads raw bytes via `read_bytes()` and hashes them directly with SHA-256, eliminating encoding normalization discrepancies.
+
+4. **Full recursive file enumeration.** `_snapshot_workspace` covers every regular file under the runtime root, not just seed-listed files. This enables detection of unexpected new files and deleted files.
+
+5. **Controlled temporary-file exclusion.** Executor-owned `.tmp` files matching the atomic-write naming convention are excluded from snapshots while an atomic write is active.
+
+6. **Evidence-collection failure recovery.** If `_snapshot_workspace` fails during post-write evidence collection, the executor attempts to restore original bytes and returns `FAILED_EVIDENCE_COLLECTION`.
+
+7. **Comprehensive test coverage.** 11 new tests added (33→43 in test_coding_executor.py) covering evidence-collection failure, restoration failure, bytes-based hashing, workspace serialization, simultaneous different-file writes, new file detection, deleted file detection, seeded-file modification, and temp-file exclusion.
+
+---
+
+## 16. Exact Stage 3 Boundary
 
 **Stage 3** would implement:
 
@@ -255,9 +287,9 @@ Stage 2 does NOT include any of these features.
 
 ---
 
-## 16. Final Commit Hash
+## 17. Final Commit Hash
 
-**Commit:** `5a8cd09` — `feat: add contained coding file-write executor`
+**Commit:** (pending) — `fix: harden coding executor evidence and concurrency`
 
 ---
 
@@ -265,6 +297,6 @@ Stage 2 does NOT include any of these features.
 
 | File | Change |
 |------|--------|
-| `backend/app/sandbox/coding_executor.py` | **NEW** — CodingWorkspace, CodingExecutionResult, coding_executor |
-| `backend/tests/test_coding_executor.py` | **NEW** — 32 focused regression tests |
-| `docs/recovery/coding_stage2_executor_report.md` | **NEW** — This report |
+| `backend/app/sandbox/coding_executor.py` | **MODIFIED** — Workspace-level lock, bytes-based hashing, full file enumeration, evidence-collection failure recovery, temp-file exclusion |
+| `backend/tests/test_coding_executor.py` | **MODIFIED** — 43 focused regression tests (11 new post-audit tests) |
+| `docs/recovery/coding_stage2_executor_report.md` | **MODIFIED** — Updated with post-audit corrections |

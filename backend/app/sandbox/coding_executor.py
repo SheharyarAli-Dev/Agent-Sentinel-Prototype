@@ -11,10 +11,14 @@ Design notes
 ────────────
   * Production fixture root and seed path are fixed internally.
   * Each execution creates a fresh temporary workspace via shutil.copytree.
-  * Validation, hash checking, atomic write, and evidence capture all occur
-    under a per-path lock owned by the workspace instance.
+  * A workspace-level reentrant lock serializes full evidence transactions.
   * Different workspace instances remain independent (no global lock sharing).
   * The tracked coding-demo fixture is verified unchanged after every operation.
+  * All evidence hashes are bytes-based (read_bytes, not text-then-encode).
+  * Workspace snapshot covers every regular file under the runtime root,
+    not just seed-listed files.  Executor-owned temp files (*.tmp matching
+    the controlled naming convention) are excluded while an atomic write
+    is active.
 """
 from __future__ import annotations
 
@@ -25,7 +29,6 @@ import shutil
 import tempfile
 import threading
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -42,8 +45,12 @@ from app.models.coding_proposal import (
 
 # ── Fixed paths ───────────────────────────────────────────────────────────────
 
-_FIXTURE_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "coding-demo"
-_SEED_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "coding_demo_seed.json"
+_FIXTURE_ROOT = (
+    Path(__file__).resolve().parent.parent.parent.parent / "coding-demo"
+)
+_SEED_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "data" / "coding_demo_seed.json"
+)
 
 
 # ── Error codes ───────────────────────────────────────────────────────────────
@@ -65,6 +72,7 @@ FAILED_WRITE = "FAILED_WRITE"
 FAILED_HASH_VERIFICATION = "FAILED_HASH_VERIFICATION"
 FAILED_UNEXPECTED_CHANGES = "FAILED_UNEXPECTED_CHANGES"
 FAILED_RESTORATION = "FAILED_RESTORATION"
+FAILED_EVIDENCE_COLLECTION = "FAILED_EVIDENCE_COLLECTION"
 
 
 # ── Result model ──────────────────────────────────────────────────────────────
@@ -87,35 +95,14 @@ class CodingExecutionResult(BaseModel):
     restoration_succeeded: bool | None = None
     executed_at: str = ""
 
-    @field_validator("before_hash", "after_hash", "expected_old_hash", "expected_new_hash")
+    @field_validator(
+        "before_hash", "after_hash", "expected_old_hash", "expected_new_hash"
+    )
     @classmethod
     def _validate_hash_field(cls, v: str) -> str:
         if v and len(v) != 64:
             raise ValueError(f"Hash must be 64 hex characters, got {len(v)}")
         return v
-
-
-# ── Per-path lock registry ────────────────────────────────────────────────────
-
-class _PathLockRegistry:
-    """Thread-safe lock registry keyed by normalized relative path.
-
-    Each CodingWorkspace owns its own registry.  Different workspace instances
-    remain independent (no global lock sharing).
-    """
-
-    def __init__(self) -> None:
-        self._locks: dict[str, threading.RLock] = {}
-        self._guard = threading.Lock()
-
-    def lock_for(self, relative_path: str) -> threading.RLock:
-        key = relative_path.replace("\\", "/").lower()
-        with self._guard:
-            lock = self._locks.get(key)
-            if lock is None:
-                lock = threading.RLock()
-                self._locks[key] = lock
-            return lock
 
 
 # ── CodingWorkspace ───────────────────────────────────────────────────────────
@@ -125,6 +112,9 @@ class CodingWorkspace:
 
     The workspace is created by copying the tracked fixture into a fresh
     temporary directory.  The tracked fixture is never modified.
+
+    A workspace-level reentrant lock serializes full evidence transactions.
+    Different workspace instances remain independent.
     """
 
     def __init__(
@@ -136,7 +126,8 @@ class CodingWorkspace:
         self._fixture_root = Path(fixture_root) if fixture_root else _FIXTURE_ROOT
         self._seed_path = Path(seed_path) if seed_path else _SEED_PATH
         self._runtime_root: Path | None = None
-        self._path_locks = _PathLockRegistry()
+        # Workspace-level lock: serializes the full evidence transaction.
+        self._execution_lock = threading.RLock()
 
     @property
     def runtime_root(self) -> Path:
@@ -148,6 +139,7 @@ class CodingWorkspace:
         """Copy the tracked fixture into a fresh temporary directory.
 
         Validates the copy against the seed manifest before returning.
+        Cleanup success is not evidence of execution success.
         """
         if not self._fixture_root.is_dir():
             raise FileNotFoundError(
@@ -172,17 +164,23 @@ class CodingWorkspace:
         with open(self._seed_path, "r", encoding="utf-8") as fh:
             return json.load(fh)
 
-    def _snapshot_hashes(self, workspace: Path) -> dict[str, str]:
-        """Compute SHA-256 for every tracked fixture file."""
-        seed = self._load_seed()
+    def _snapshot_workspace(self, workspace: Path) -> dict[str, str]:
+        """Recursively compute bytes-based SHA-256 for every regular file.
+
+        Excludes executor-owned temporary files matching the controlled
+        atomic-write naming convention (name.tmp suffix).
+        Does not follow symlinks.
+        """
         hashes: dict[str, str] = {}
-        for rel_path in seed.get("files", {}):
-            fp = workspace / rel_path
-            if fp.is_file():
-                content = fp.read_text(encoding="utf-8")
-                hashes[rel_path] = hashlib.sha256(
-                    content.encode("utf-8")
-                ).hexdigest()
+        for fp in sorted(workspace.rglob("*")):
+            if not fp.is_file():
+                continue
+            if fp.is_symlink():
+                continue
+            if fp.suffix == ".tmp":
+                continue
+            rel = str(fp.relative_to(workspace)).replace("\\", "/")
+            hashes[rel] = _file_hash(fp)
         return hashes
 
     def _verify_seed(self, workspace: Path) -> None:
@@ -194,14 +192,12 @@ class CodingWorkspace:
                 raise RuntimeError(
                     f"Copied fixture missing file: {rel_path}"
                 )
-            content = fp.read_text(encoding="utf-8")
-            actual_hash = hashlib.sha256(
-                content.encode("utf-8")
-            ).hexdigest()
+            actual_hash = _file_hash(fp)
             if actual_hash != info["hash"]:
                 raise RuntimeError(
                     f"Seed verification failed for {rel_path}: "
-                    f"expected {info['hash'][:16]}..., got {actual_hash[:16]}..."
+                    f"expected {info['hash'][:16]}..., "
+                    f"got {actual_hash[:16]}..."
                 )
 
     # ── File write execution ──────────────────────────────────────────────────
@@ -211,12 +207,11 @@ class CodingWorkspace:
         proposal: CodingProposal,
         *,
         review_authorized: bool = False,
-        preserve_runtime: bool = False,
     ) -> CodingExecutionResult:
         """Execute a bounded file_write action inside the runtime workspace.
 
-        All validation, hash checking, atomic write, and evidence capture
-        occur while holding the per-path lock.
+        The full evidence transaction is serialized by the workspace-level
+        execution lock.  Different workspace instances remain independent.
         """
         workspace = self.runtime_root / "coding-demo"
         raw_path = proposal.relative_path
@@ -281,9 +276,8 @@ class CodingWorkspace:
                 executed_at=now,
             )
 
-        # ── Acquire per-path lock ─────────────────────────────────────────────
-        path_lock = self._path_locks.lock_for(rel)
-        with path_lock:
+        # ── Acquire workspace-level execution lock ────────────────────────────
+        with self._execution_lock:
             # ── 5. File existence ─────────────────────────────────────────────
             target = workspace / rel
             if not target.is_file():
@@ -349,10 +343,10 @@ class CodingWorkspace:
                     executed_at=now,
                 )
 
-            # ── 10. Snapshot hashes ───────────────────────────────────────────
-            pre_write_hashes = self._snapshot_hashes(workspace)
+            # ── 10. Pre-write workspace snapshot ──────────────────────────────
+            pre_write_hashes = self._snapshot_workspace(workspace)
 
-            # ── Atomic write ──────────────────────────────────────────────────
+            # ── 11. Atomic write ──────────────────────────────────────────────
             original_bytes: bytes | None = None
             write_error: str | None = None
             try:
@@ -361,7 +355,7 @@ class CodingWorkspace:
             except Exception as exc:
                 write_error = str(exc)
 
-            # ── Failure path: attempt restoration ─────────────────────────────
+            # ── Write failure → restore ───────────────────────────────────────
             if write_error is not None:
                 restoration_attempted = True
                 restoration_succeeded = False
@@ -386,7 +380,7 @@ class CodingWorkspace:
                     executed_at=now,
                 )
 
-            # ── 11. After-hash check ──────────────────────────────────────────
+            # ── 12. After-hash check ──────────────────────────────────────────
             after_hash = _file_hash(target)
             if after_hash != proposal.expected_new_hash:
                 restoration_attempted = True
@@ -415,20 +409,44 @@ class CodingWorkspace:
                     executed_at=now,
                 )
 
-            # ── 12. Unexpected secondary-file changes ─────────────────────────
-            post_write_hashes = self._snapshot_hashes(workspace)
-            unexpected = sorted(
-                fp
-                for fp in set(post_write_hashes) | set(pre_write_hashes)
-                if fp != rel
-                and post_write_hashes.get(fp) != pre_write_hashes.get(fp)
-            )
-            changed = sorted(
-                fp
-                for fp in set(post_write_hashes) | set(pre_write_hashes)
-                if post_write_hashes.get(fp) != pre_write_hashes.get(fp)
-            )
+            # ── 13. Post-write evidence collection (guarded) ──────────────────
+            try:
+                post_write_hashes = self._snapshot_workspace(workspace)
+                unexpected = sorted(
+                    fp
+                    for fp in set(post_write_hashes) | set(pre_write_hashes)
+                    if fp != rel
+                    and post_write_hashes.get(fp) != pre_write_hashes.get(fp)
+                )
+                changed = sorted(
+                    fp
+                    for fp in set(post_write_hashes) | set(pre_write_hashes)
+                    if post_write_hashes.get(fp) != pre_write_hashes.get(fp)
+                )
+            except Exception as exc:
+                restoration_attempted = True
+                restoration_succeeded = False
+                try:
+                    _atomic_write_bytes(target, original_bytes)
+                    restoration_succeeded = True
+                except Exception:
+                    pass
+                final_hash = _file_hash(target)
+                return CodingExecutionResult(
+                    status="failed",
+                    relative_path=rel,
+                    before_hash=before_hash,
+                    after_hash=final_hash,
+                    expected_old_hash=proposal.expected_old_hash,
+                    expected_new_hash=proposal.expected_new_hash,
+                    error_code=FAILED_EVIDENCE_COLLECTION,
+                    error_message=f"Evidence collection failed: {exc}",
+                    restoration_attempted=restoration_attempted,
+                    restoration_succeeded=restoration_succeeded,
+                    executed_at=now,
+                )
 
+            # ── 14. Unexpected changes → restore ──────────────────────────────
             if unexpected:
                 restoration_attempted = True
                 restoration_succeeded = False
@@ -459,7 +477,7 @@ class CodingWorkspace:
                     executed_at=now,
                 )
 
-            # ── 13. Success ───────────────────────────────────────────────────
+            # ── 15. Success ───────────────────────────────────────────────────
             return CodingExecutionResult(
                 status="executed",
                 relative_path=rel,
@@ -473,7 +491,11 @@ class CodingWorkspace:
             )
 
     def cleanup(self) -> None:
-        """Remove the temporary runtime workspace."""
+        """Remove the temporary runtime workspace.
+
+        Cleanup uses ignore_errors=True.  Cleanup success is not evidence
+        of execution success.
+        """
         if self._runtime_root is not None and self._runtime_root.exists():
             shutil.rmtree(str(self._runtime_root), ignore_errors=True)
             self._runtime_root = None
@@ -550,7 +572,7 @@ def _atomic_write_bytes(target: Path, data: bytes) -> None:
 
 
 def _file_hash(path: Path) -> str:
-    """Compute SHA-256 hex digest of a file."""
+    """Compute SHA-256 hex digest of a file's raw bytes."""
     content = path.read_bytes()
     return hashlib.sha256(content).hexdigest()
 
@@ -561,7 +583,6 @@ def coding_executor(
     proposal: CodingProposal,
     *,
     review_authorized: bool = False,
-    preserve_runtime: bool = False,
 ) -> CodingExecutionResult:
     """Execute a bounded coding file-write proposal.
 
@@ -574,7 +595,6 @@ def coding_executor(
         return workspace.execute_file_write(
             proposal,
             review_authorized=review_authorized,
-            preserve_runtime=preserve_runtime,
         )
     finally:
         workspace.cleanup()
