@@ -113,11 +113,11 @@ def _run_cursor_modules(event: EventCreate) -> list[DecisionCreate]:
     # Coding proposal: run the coding-specific contract and path evaluation
     if event.event_type == "coding_proposal":
         from app.policy.coding_proposal_engine import evaluate_coding_proposal
-        from app.models.coding_proposal import CodingProposal, ProposalValidationError
+        from app.models.coding_proposal import CodingProposal
         try:
             proposal = CodingProposal.model_validate(event.payload)
             results.append(evaluate_coding_proposal(event, proposal))
-        except (ProposalValidationError, Exception) as exc:
+        except Exception as exc:
             # Invalid proposal fails safely with BLOCK
             results.append(DecisionCreate(
                 verdict="BLOCK",

@@ -50,10 +50,6 @@ class PathSafetyRejection(Exception):
         self.rule = rule
 
 
-class ProposalValidationError(Exception):
-    """Raised when a coding proposal fails contract validation."""
-
-
 # ── CodingProposal Pydantic model ──────────────────────────────────────────────
 
 class CodingProposal(BaseModel):

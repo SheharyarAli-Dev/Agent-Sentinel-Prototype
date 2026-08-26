@@ -225,3 +225,39 @@ dist/assets/index-DhJhHeoe.js  268.21 kB │ gzip: 83.09 kB
 | `coding-demo/config/app.json` | **NEW** — Sensitive demo config file |
 | `coding-demo/protected/secrets.env` | **NEW** — Protected demo secret file |
 | `coding-demo/README.md` | **NEW** — Fixture documentation |
+
+---
+
+## Post-Audit Cleanup (commit `test: complete coding proposal fingerprint coverage`)
+
+**Date:** 2026-08-26
+
+### Changes
+
+1. **Added `expected_old_hash` fingerprint test** — `test_fingerprint_changes_with_old_hash` in `TestCanonicalFingerprint` verifies that changing only `expected_old_hash` produces a different fingerprint. This was the one missing fingerprint-binding test identified in the audit.
+
+2. **Removed dead `ProposalValidationError` class** — The exception was defined in `coding_proposal.py` but never raised. Pydantic's `ValidationError` is used instead. Removed from:
+   - `backend/app/models/coding_proposal.py` (class definition)
+   - `backend/app/policy/rules_engine.py` (import and catch clause)
+   - `backend/tests/test_coding_proposal.py` (import)
+
+### Final Test Count
+
+| Metric | Value |
+|--------|-------|
+| Tests collected | 333 |
+| Tests passed | 332 |
+| Tests skipped | 1 |
+| New tests (test_coding_proposal.py) | 50 |
+
+### Skipped Test
+
+`TestPathSafety::test_symlink_escape_rejected` — Skipped on Windows because creating symlinks requires elevated privileges (Developer Mode or Administrator). The containment logic via `os.path.commonpath` provides equivalent protection. This test passes on Unix/macOS CI environments.
+
+### Verification
+
+- Focused tests: 49 passed, 1 skipped
+- Full suite: 332 passed, 1 skipped
+- Frontend build: clean
+- Demo verification: READY
+- Seed hashes: all 4 match

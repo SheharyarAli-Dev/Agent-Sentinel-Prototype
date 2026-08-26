@@ -26,7 +26,6 @@ from pydantic import ValidationError
 from app.models.coding_proposal import (
     CodingProposal,
     PathSafetyRejection,
-    ProposalValidationError,
     build_coding_canonical_json,
     classify_path,
     compute_proposal_fingerprint,
@@ -355,6 +354,13 @@ class TestCanonicalFingerprint:
     def test_fingerprint_changes_with_invariants(self):
         p1 = _make_proposal(protected_invariants=["a"])
         p2 = _make_proposal(protected_invariants=["b"])
+        fp1 = compute_proposal_fingerprint("cursor", "coding_proposal", "a", p1)
+        fp2 = compute_proposal_fingerprint("cursor", "coding_proposal", "a", p2)
+        assert fp1 != fp2
+
+    def test_fingerprint_changes_with_old_hash(self):
+        p1 = _make_proposal(expected_old_hash="a" * 64)
+        p2 = _make_proposal(expected_old_hash="b" * 64)
         fp1 = compute_proposal_fingerprint("cursor", "coding_proposal", "a", p1)
         fp2 = compute_proposal_fingerprint("cursor", "coding_proposal", "a", p2)
         assert fp1 != fp2
