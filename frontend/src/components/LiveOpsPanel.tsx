@@ -363,23 +363,23 @@ export const LiveOpsPanel: React.FC = () => {
   const snapshotPresent = state?.snapshots.some((s) => s.id === 'prod-backup-latest') ?? false
 
   const outcomeStyles: Record<OutcomeLabel, string> = {
-    'ALLOWED AND EXECUTED': 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    'APPROVED AND EXECUTED': 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    'HUMAN REVIEW REQUIRED': 'bg-amber-100 text-amber-900 border-amber-300',
-    'REJECTED, NOT EXECUTED': 'bg-rose-100 text-rose-800 border-rose-300',
-    'BLOCKED, RESOURCE UNCHANGED': 'bg-rose-100 text-rose-800 border-rose-300',
-    'ALREADY PROCESSED': 'bg-sky-100 text-sky-800 border-sky-300',
+    'ALLOWED AND EXECUTED': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    'APPROVED AND EXECUTED': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    'HUMAN REVIEW REQUIRED': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    'REJECTED, NOT EXECUTED': 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+    'BLOCKED, RESOURCE UNCHANGED': 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+    'ALREADY PROCESSED': 'bg-sky-500/15 text-sky-400 border-sky-500/30',
   }
 
   return (
-    <section className="font-lexend theme-card p-6">
+    <section className="font-lexend bg-slate-900/85 border border-slate-700/70 shadow-sm p-6 rounded-2xl">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
         <div>
-          <h2 className="text-xl font-extrabold tracking-tight text-[#2A2B2E] uppercase">
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-100 uppercase">
             Agent Sentinel LiveOps
           </h2>
-          <p className="text-xs text-[#6B6C70] mt-1 max-w-xl">
+          <p className="text-xs text-slate-400 mt-1 max-w-xl">
             An agent proposes a cloud operation. Agent Sentinel decides whether
             it may run.
           </p>
@@ -387,32 +387,32 @@ export const LiveOpsPanel: React.FC = () => {
         <button
           onClick={handleRestore}
           disabled={restoring || busy !== null}
-          className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {restoring ? '⏳ Restoring…' : '↺ Restore Demo State'}
+          {restoring ? 'Restoring…' : '↺ Restore Demo State'}
         </button>
       </div>
-      <p className="text-[11px] text-neutral-400 mb-5">
+      <p className="text-[11px] text-slate-500 mb-5">
         Restore resets the demo cloud to its starting state. Audit and decision
         history is retained.
       </p>
 
       {/* ── Simulated cloud state ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+        <div className="rounded-2xl border border-cyan-500/20 bg-slate-800/60 p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-sm font-bold text-neutral-800">dev-unused-01</span>
+            <span className="font-mono text-sm font-bold text-slate-100">dev-unused-01</span>
           </div>
-          <div className="text-[11px] text-neutral-500">Development VM</div>
+          <div className="text-[11px] text-slate-400">Development VM</div>
           <div className="mt-2">
             {loading ? (
-              <span className="text-xs text-neutral-400">loading…</span>
+              <span className="text-xs text-slate-500">loading…</span>
             ) : (
               <span
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
                   vmState('dev-unused-01') === 'running'
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    : 'bg-neutral-200 text-neutral-700 border-neutral-300'
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                    : 'bg-slate-700/50 text-slate-400 border-slate-600/40'
                 }`}
               >
                 {vmState('dev-unused-01') === 'running' ? 'Running' : 'Stopped'}
@@ -421,23 +421,23 @@ export const LiveOpsPanel: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+        <div className="rounded-2xl border border-amber-500/20 bg-slate-800/60 p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-sm font-bold text-neutral-800">prod-api-01</span>
-            <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-violet-100 text-violet-800 border border-violet-300">
-              🛡️ Protected
+            <span className="font-mono text-sm font-bold text-slate-100">prod-api-01</span>
+            <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
+              Protected
             </span>
           </div>
-          <div className="text-[11px] text-neutral-500">Production VM</div>
+          <div className="text-[11px] text-slate-400">Production VM</div>
           <div className="mt-2">
             {loading ? (
-              <span className="text-xs text-neutral-400">loading…</span>
+              <span className="text-xs text-slate-500">loading…</span>
             ) : (
               <span
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
                   vmState('prod-api-01') === 'running'
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    : 'bg-neutral-200 text-neutral-700 border-neutral-300'
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                    : 'bg-slate-700/50 text-slate-400 border-slate-600/40'
                 }`}
               >
                 {vmState('prod-api-01') === 'running' ? 'Running' : 'Stopped'}
@@ -446,23 +446,23 @@ export const LiveOpsPanel: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+        <div className="rounded-2xl border border-violet-500/20 bg-slate-800/60 p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-sm font-bold text-neutral-800">prod-backup-latest</span>
-            <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-violet-100 text-violet-800 border border-violet-300">
-              🛡️ Protected
+            <span className="font-mono text-sm font-bold text-slate-100">prod-backup-latest</span>
+            <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
+              Protected
             </span>
           </div>
-          <div className="text-[11px] text-neutral-500">Production backup snapshot</div>
+          <div className="text-[11px] text-slate-400">Production backup snapshot</div>
           <div className="mt-2">
             {loading ? (
-              <span className="text-xs text-neutral-400">loading…</span>
+              <span className="text-xs text-slate-500">loading…</span>
             ) : (
               <span
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
                   snapshotPresent
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    : 'bg-neutral-200 text-neutral-700 border-neutral-300'
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                    : 'bg-slate-700/50 text-slate-400 border-slate-600/40'
                 }`}
               >
                 {snapshotPresent ? 'Present' : 'Absent'}
@@ -479,16 +479,22 @@ export const LiveOpsPanel: React.FC = () => {
             key={s.key}
             onClick={() => runScenario(s)}
             disabled={busy !== null}
-            className="px-4 py-3 text-xs font-semibold rounded-2xl bg-neutral-900 hover:bg-neutral-700 text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-left"
+            className={`px-4 py-3 text-xs font-semibold rounded-2xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-left ${
+              s.key === 'dev'
+                ? 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30'
+                : s.key === 'prod'
+                ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30'
+                : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30'
+            }`}
           >
-            {busy === s.key ? '⏳ Evaluating…' : `▶ ${s.label}`}
+            {busy === s.key ? 'Evaluating…' : `▶ ${s.label}`}
           </button>
         ))}
       </div>
 
       {/* ── Error state ────────────────────────────────────────────────────── */}
       {error && (
-        <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+        <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
           <span className="font-semibold">Something went wrong:</span>{' '}
           {error}
         </div>
@@ -496,7 +502,7 @@ export const LiveOpsPanel: React.FC = () => {
 
       {/* ── Latest result ──────────────────────────────────────────────────── */}
       {result && (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-700/70 bg-slate-800/60 p-4">
           <span
             className={`inline-block px-3 py-1 text-xs font-extrabold uppercase tracking-wider rounded-full border ${outcomeStyles[result.outcome]}`}
           >
@@ -504,68 +510,68 @@ export const LiveOpsPanel: React.FC = () => {
           </span>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
             <div>
-              <span className="text-neutral-400">Goal: </span>
-              <span className="text-neutral-800">{result.goal}</span>
+              <span className="text-slate-500">Goal: </span>
+              <span className="text-slate-200">{result.goal}</span>
             </div>
             <div>
-              <span className="text-neutral-400">Proposed action: </span>
-              <span className="font-mono text-neutral-800">{result.proposed}</span>
+              <span className="text-slate-500">Proposed action: </span>
+              <span className="font-mono text-slate-200">{result.proposed}</span>
             </div>
             <div>
-              <span className="text-neutral-400">Verdict: </span>
+              <span className="text-slate-500">Verdict: </span>
               <span
                 className={`font-semibold ${
                   result.verdict === 'ALLOW'
-                    ? 'text-emerald-700'
+                    ? 'text-emerald-400'
                     : result.verdict === 'WARN'
-                    ? 'text-amber-700'
-                    : 'text-rose-700'
+                    ? 'text-amber-400'
+                    : 'text-rose-400'
                 }`}
               >
                 {result.verdict}
               </span>
             </div>
             <div>
-              <span className="text-neutral-400">Risk score: </span>
-              <span className="font-mono font-semibold text-neutral-800">
+              <span className="text-slate-500">Risk score: </span>
+              <span className="font-mono font-semibold text-slate-200">
                 {(result.risk * 100).toFixed(1)}%
               </span>
             </div>
             {result.humanDecision && (
               <div>
-                <span className="text-neutral-400">Human decision: </span>
-                <span className="font-semibold text-neutral-800">
+                <span className="text-slate-500">Human decision: </span>
+                <span className="font-semibold text-slate-200">
                   {result.humanDecision === 'approved' ? 'Approved' : 'Rejected'}
                 </span>
               </div>
             )}
             {result.executionStatus && (
               <div>
-                <span className="text-neutral-400">Execution status: </span>
-                <span className="font-mono font-semibold text-neutral-800">
+                <span className="text-slate-500">Execution status: </span>
+                <span className="font-mono font-semibold text-slate-200">
                   {result.executionStatus}
                 </span>
               </div>
             )}
             {result.observed && (
               <div className="sm:col-span-2">
-                <span className="text-neutral-400">Observed resource state: </span>
-                <span className="font-semibold text-neutral-800">{result.observed}</span>
+                <span className="text-slate-500">Observed resource state: </span>
+                <span className="font-semibold text-slate-200">{result.observed}</span>
               </div>
             )}
           </div>
 
           {/* ── Authorized Outcome Verification ─────────────────────────────── */}
           {(verificationLoading || verification || verificationError) && (
-            <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-2">
+            <div className="mt-3 rounded-xl border border-slate-700/60 bg-slate-800/50 p-3.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
                 Authorized Outcome Verification
               </div>
               {verificationLoading && !verification && (
-                <div className="text-xs text-neutral-400">Verifying outcome…</div>
+                <div className="text-xs text-slate-400">Verifying outcome…</div>
               )}
               {verificationError && !verification && (
-                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                <div className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2.5 py-1.5">
                   {verificationError}
                 </div>
               )}
@@ -574,12 +580,12 @@ export const LiveOpsPanel: React.FC = () => {
                   {/* Operation */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                     <div>
-                      <span className="text-neutral-400">Operation ID: </span>
-                      <span className="font-mono text-neutral-800">{verification.operation_id}</span>
+                      <span className="text-slate-500">Operation ID: </span>
+                      <span className="font-mono text-cyan-400">{verification.operation_id}</span>
                     </div>
                     <div>
-                      <span className="text-neutral-400">Fingerprint: </span>
-                      <span className="font-mono text-neutral-800">
+                      <span className="text-slate-500">Fingerprint: </span>
+                      <span className="font-mono text-cyan-400">
                         {verification.action_fingerprint.slice(0, 12)}…
                       </span>
                     </div>
@@ -587,29 +593,29 @@ export const LiveOpsPanel: React.FC = () => {
 
                   {/* Expected outcome */}
                   {verification.expected_outcome && (
-                    <div className="rounded-lg bg-white border border-neutral-200 p-2.5">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                    <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                         Expected
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                         <div>
-                          <span className="text-neutral-400">Target: </span>
-                          <span className="font-mono font-semibold text-neutral-800">
+                          <span className="text-slate-500">Target: </span>
+                          <span className="font-mono font-semibold text-slate-200">
                             {verification.expected_outcome.target_resource}
                           </span>
                         </div>
                         {verification.expected_outcome.allowed_state_transition && (
                           <div>
-                            <span className="text-neutral-400">Transition: </span>
-                            <span className="font-mono text-neutral-800">
+                            <span className="text-slate-500">Transition: </span>
+                            <span className="font-mono text-slate-300">
                               {verification.expected_outcome.allowed_state_transition}
                             </span>
                           </div>
                         )}
                         {verification.expected_outcome.expected_final_state && (
                           <div className="sm:col-span-2">
-                            <span className="text-neutral-400">Final state: </span>
-                            <span className="font-mono text-neutral-800">
+                            <span className="text-slate-500">Final state: </span>
+                            <span className="font-mono text-slate-300">
                               {JSON.stringify(verification.expected_outcome.expected_final_state)}
                             </span>
                           </div>
@@ -620,26 +626,26 @@ export const LiveOpsPanel: React.FC = () => {
 
                   {/* Observed state */}
                   {verification.observed_state && (
-                    <div className="rounded-lg bg-white border border-neutral-200 p-2.5">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                    <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                         Observed
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                         <div>
-                          <span className="text-neutral-400">Target: </span>
-                          <span className="font-mono font-semibold text-neutral-800">
+                          <span className="text-slate-500">Target: </span>
+                          <span className="font-mono font-semibold text-slate-200">
                             {verification.observed_state.target}
                           </span>
                         </div>
                         <div>
-                          <span className="text-neutral-400">State: </span>
-                          <span className="font-mono text-neutral-800">
+                          <span className="text-slate-500">State: </span>
+                          <span className="font-mono text-slate-300">
                             {verification.observed_state.state ?? 'Not available'}
                           </span>
                         </div>
                         <div>
-                          <span className="text-neutral-400">Protected: </span>
-                          <span className="font-mono text-neutral-800">
+                          <span className="text-slate-500">Protected: </span>
+                          <span className="font-mono text-slate-300">
                             {verification.observed_state.protected !== null
                               ? String(verification.observed_state.protected)
                               : 'Not available'}
@@ -647,8 +653,8 @@ export const LiveOpsPanel: React.FC = () => {
                         </div>
                         {verification.observed_state.environment !== null && (
                           <div>
-                            <span className="text-neutral-400">Environment: </span>
-                            <span className="font-mono text-neutral-800">
+                            <span className="text-slate-500">Environment: </span>
+                            <span className="font-mono text-slate-300">
                               {verification.observed_state.environment}
                             </span>
                           </div>
@@ -659,18 +665,18 @@ export const LiveOpsPanel: React.FC = () => {
 
                   {/* Verification status */}
                   <div>
-                    <span className="text-neutral-400">Verification: </span>
+                    <span className="text-slate-500">Verification: </span>
                     <span
                       className={`font-extrabold uppercase tracking-wider ${
                         verification.status === 'VERIFIED'
-                          ? 'text-emerald-700'
+                          ? 'text-emerald-400'
                           : verification.status === 'PARTIAL'
-                          ? 'text-amber-700'
+                          ? 'text-amber-400'
                           : verification.status === 'MISMATCH'
-                          ? 'text-rose-700'
+                          ? 'text-rose-400'
                           : verification.status === 'EXECUTION_FAILED'
-                          ? 'text-rose-700'
-                          : 'text-neutral-500'
+                          ? 'text-rose-400'
+                          : 'text-slate-400'
                       }`}
                     >
                       {verification.status}
@@ -681,17 +687,17 @@ export const LiveOpsPanel: React.FC = () => {
                   {(verification.invariant_violations.length > 0 ||
                     verification.unexpected_mutations.length > 0 ||
                     verification.permitted_mutations_observed.length > 0) && (
-                    <div className="rounded-lg bg-white border border-neutral-200 p-2.5">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                    <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                         Evidence
                       </div>
                       <div className="space-y-1.5">
                         {verification.invariant_violations.length > 0 && (
                           <div>
-                            <span className="text-[10px] font-semibold text-rose-700 uppercase">
+                            <span className="text-[10px] font-semibold text-rose-400 uppercase">
                               Invariant violations:
                             </span>
-                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-rose-800">
+                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-rose-300">
                               {verification.invariant_violations.map((v, i) => (
                                 <li key={i}>{v}</li>
                               ))}
@@ -700,10 +706,10 @@ export const LiveOpsPanel: React.FC = () => {
                         )}
                         {verification.unexpected_mutations.length > 0 && (
                           <div>
-                            <span className="text-[10px] font-semibold text-rose-700 uppercase">
+                            <span className="text-[10px] font-semibold text-rose-400 uppercase">
                               Unexpected mutations:
                             </span>
-                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-rose-800">
+                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-rose-300">
                               {verification.unexpected_mutations.map((m, i) => (
                                 <li key={i}>{m}</li>
                               ))}
@@ -712,10 +718,10 @@ export const LiveOpsPanel: React.FC = () => {
                         )}
                         {verification.permitted_mutations_observed.length > 0 && (
                           <div>
-                            <span className="text-[10px] font-semibold text-emerald-700 uppercase">
+                            <span className="text-[10px] font-semibold text-emerald-400 uppercase">
                               Permitted mutations observed:
                             </span>
-                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-emerald-800">
+                            <ul className="mt-0.5 space-y-0.5 pl-3 list-disc list-inside text-emerald-300">
                               {verification.permitted_mutations_observed.map((m, i) => (
                                 <li key={i}>{m}</li>
                               ))}
@@ -731,10 +737,10 @@ export const LiveOpsPanel: React.FC = () => {
           )}
           {result.reasons.length > 0 && (
             <details className="mt-3">
-              <summary className="text-xs text-neutral-500 hover:text-neutral-800 cursor-pointer select-none font-mono">
+              <summary className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer select-none font-mono">
                 ▶ View evaluation reasons
               </summary>
-              <ul className="mt-2 space-y-1 text-xs text-neutral-700 list-disc list-inside pl-1">
+              <ul className="mt-2 space-y-1 text-xs text-slate-300 list-disc list-inside pl-1">
                 {result.reasons.map((r, i) => (
                   <li key={i}>{r}</li>
                 ))}

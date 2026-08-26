@@ -11,7 +11,7 @@
  *  - KPI metrics row (total, block rate, avg risk, avg latency)
  *  - Top policy modules leaderboard
  *  - Collapsible with smooth animation
- *  - Matches warm cream + glassmorphism theme of rest of dashboard
+ *  - Dark operations-console theme
  */
 import React, { useMemo, useState } from 'react'
 import type { WsMessage } from '../hooks/useWebSocket'
@@ -79,19 +79,19 @@ function DonutChart({ slices, total }: { slices: DonutSlice[]; total: number }) 
     <div className="flex flex-col items-center">
       <svg width="140" height="140" viewBox="0 0 140 140">
         {/* Donut hole */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#F0EEE5" strokeWidth="28" />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e293b" strokeWidth="28" />
         {total === 0 ? (
-          <circle cx={cx} cy={cy} r={r} fill="#E8E7E2" />
+          <circle cx={cx} cy={cy} r={r} fill="#1e293b" />
         ) : (
           paths
         )}
-        {/* Inner white hole */}
-        <circle cx={cx} cy={cy} r={r - 27} fill="#FAFAF6" />
+        {/* Inner dark hole */}
+        <circle cx={cx} cy={cy} r={r - 27} fill="#0f172a" />
         {/* Center label */}
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="18" fontWeight="700" fill="#1A1B1E" fontFamily="Lexend, sans-serif">
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="18" fontWeight="700" fill="#e2e8f0" fontFamily="Lexend, sans-serif">
           {total}
         </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fill="#6B6C70" fontFamily="Lexend, sans-serif">
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fill="#64748b" fontFamily="Lexend, sans-serif">
           TOTAL
         </text>
       </svg>
@@ -101,11 +101,11 @@ function DonutChart({ slices, total }: { slices: DonutSlice[]; total: number }) 
           <div key={s.label} className="flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
-              <span className="text-neutral-600 font-medium">{s.label}</span>
+              <span className="text-slate-300 font-medium">{s.label}</span>
             </div>
             <span className="font-mono font-semibold" style={{ color: s.accent }}>
               {s.value}
-              <span className="text-neutral-400 font-normal ml-1">
+              <span className="text-slate-500 font-normal ml-1">
                 ({total > 0 ? Math.round((s.value / total) * 100) : 0}%)
               </span>
             </span>
@@ -123,7 +123,7 @@ function Sparkline({ scores }: { scores: number[] }) {
   const h = 48
   if (scores.length < 2) {
     return (
-      <div className="flex items-center justify-center h-12 text-xs text-neutral-400">
+      <div className="flex items-center justify-center h-12 text-xs text-slate-500">
         Waiting for data…
       </div>
     )
@@ -135,14 +135,14 @@ function Sparkline({ scores }: { scores: number[] }) {
     return `${x},${y}`
   })
   const last = scores[scores.length - 1]
-  const lastColor = last >= 0.75 ? '#EF4444' : last >= 0.40 ? '#F59E0B' : '#22C55E'
+  const lastColor = last >= 0.75 ? '#f87171' : last >= 0.40 ? '#fbbf24' : '#34d399'
 
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
       <polyline
         points={pts.join(' ')}
         fill="none"
-        stroke="#C8C6BE"
+        stroke="#475569"
         strokeWidth="1.5"
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -150,8 +150,8 @@ function Sparkline({ scores }: { scores: number[] }) {
       {/* Gradient fill under line */}
       <defs>
         <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#D4C5F9" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#D4C5F9" stopOpacity="0" />
+          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon
@@ -191,10 +191,10 @@ function BarChart({ bars }: { bars: BarItem[] }) {
               rx={6} fill={b.color} opacity="0.85"
               className="transition-all duration-500"
             />
-            <text x={x + bw / 2} y={h + 14} textAnchor="middle" fontSize="9" fill="#6B6C70" fontFamily="Lexend, sans-serif">
+            <text x={x + bw / 2} y={h + 14} textAnchor="middle" fontSize="9" fill="#64748b" fontFamily="Lexend, sans-serif">
               {b.label}
             </text>
-            <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="10" fontWeight="700" fill="#1A1B1E" fontFamily="Lexend, sans-serif">
+            <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="10" fontWeight="700" fill="#e2e8f0" fontFamily="Lexend, sans-serif">
               {b.value}
             </text>
           </g>
@@ -299,7 +299,7 @@ items.forEach(({ event, decision }) => {
   }
 
   return (
-    <section className="relative z-10 px-6 lg:px-12 pb-6 font-lexend">
+    <section className="relative z-10 px-6 lg:px-12 pt-8 pb-6 font-lexend">
       {/* Panel Header — matches dashboard style */}
       <div
         className="flex items-center justify-between mb-4 cursor-pointer group"
@@ -307,14 +307,14 @@ items.forEach(({ event, decision }) => {
       >
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-          <h3 className="text-sm font-extrabold uppercase tracking-widest text-[#2A2B2E]">
+          <h3 className="text-lg sm:text-xl font-bold uppercase tracking-widest text-slate-100">
             Analytics & Statistics
           </h3>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E8E7E2] text-[#5C5D60] border border-[#D5D3CB]">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#0a1628] text-slate-400 border border-cyan-900/30">
             {stats.total} events
           </span>
         </div>
-        <button className="text-xs text-neutral-500 group-hover:text-neutral-800 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#F0EFE9] hover:bg-[#E8E7E2] border border-[#E0DED6]">
+        <button className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#0a1628] hover:bg-[#0f1a30] border border-cyan-900/30">
           {collapsed ? '▶ Expand' : '▼ Collapse'}
         </button>
       </div>
@@ -332,46 +332,46 @@ items.forEach(({ event, decision }) => {
               label: 'Total Events',
               value: stats.total.toString(),
               sub: 'intercepted',
-              accent: 'text-[#2A2B2E]',
-              bg: 'bg-[#F0EFE9]',
-              border: 'border-[#E0DED6]',
+              accent: 'text-slate-100',
+              bg: 'bg-[#0a1628]/60',
+              border: 'border-cyan-900/20',
             },
             {
               label: 'Block Rate',
               value: `${stats.blockRate.toFixed(1)}%`,
               sub: `${stats.block} blocked`,
-              accent: 'text-rose-700',
-              bg: 'bg-rose-50',
-              border: 'border-rose-200',
+              accent: 'text-rose-400',
+              bg: 'bg-rose-950/40',
+              border: 'border-rose-800/30',
             },
             {
               label: 'Avg Risk Score',
               value: `${(stats.avgRisk * 100).toFixed(1)}%`,
               sub: 'across all events',
-              accent: stats.avgRisk >= 0.5 ? 'text-amber-700' : 'text-emerald-700',
-              bg: stats.avgRisk >= 0.5 ? 'bg-amber-50' : 'bg-emerald-50',
-              border: stats.avgRisk >= 0.5 ? 'border-amber-200' : 'border-emerald-200',
+              accent: stats.avgRisk >= 0.5 ? 'text-amber-400' : 'text-emerald-400',
+              bg: stats.avgRisk >= 0.5 ? 'bg-amber-950/40' : 'bg-emerald-950/40',
+              border: stats.avgRisk >= 0.5 ? 'border-amber-800/30' : 'border-emerald-800/30',
             },
             {
               label: 'Avg Latency',
               value: `${stats.avgLatency.toFixed(1)}ms`,
               sub: stats.avgLatency < 40 ? '✓ within KPI' : '⚠ above 40ms',
-              accent: stats.avgLatency < 40 ? 'text-emerald-700' : 'text-amber-700',
-              bg: stats.avgLatency < 40 ? 'bg-emerald-50' : 'bg-amber-50',
-              border: stats.avgLatency < 40 ? 'border-emerald-200' : 'border-amber-200',
+              accent: stats.avgLatency < 40 ? 'text-emerald-400' : 'text-amber-400',
+              bg: stats.avgLatency < 40 ? 'bg-emerald-950/40' : 'bg-amber-950/40',
+              border: stats.avgLatency < 40 ? 'border-emerald-800/30' : 'border-amber-800/30',
             },
           ].map((kpi) => (
             <div
               key={kpi.label}
-              className={`${kpi.bg} border ${kpi.border} rounded-2xl p-3.5 transition-all duration-300 hover:scale-[1.02] hover:shadow-sm`}
+              className={`${kpi.bg} border ${kpi.border} rounded-2xl p-3.5 static-card`}
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                 {kpi.label}
               </div>
               <div className={`text-2xl font-extrabold font-mono ${kpi.accent}`}>
                 {kpi.value}
               </div>
-              <div className="text-[10px] text-neutral-400 mt-0.5">{kpi.sub}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{kpi.sub}</div>
             </div>
           ))}
         </div>
@@ -381,12 +381,12 @@ items.forEach(({ event, decision }) => {
 
           {/* Verdict Donut */}
           <div className="theme-card p-4">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
               Verdict Breakdown
             </div>
             <DonutChart slices={donutSlices} total={stats.total} />
             {stats.unblocked > 0 && (
-              <div className="mt-2 text-[10px] text-violet-700 font-medium text-center bg-violet-50 border border-violet-200 rounded-xl py-1 px-2">
+              <div className="mt-2 text-[10px] text-violet-400 font-medium text-center bg-violet-950/40 border border-violet-800/30 rounded-xl py-1 px-2">
                 🔓 {stats.unblocked} block{stats.unblocked > 1 ? 's' : ''} manually unblocked
               </div>
             )}
@@ -394,11 +394,11 @@ items.forEach(({ event, decision }) => {
 
           {/* Source Bar Chart */}
           <div className="theme-card p-4">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
               Actions by Source
             </div>
             {stats.total === 0 ? (
-              <div className="flex items-center justify-center h-24 text-xs text-neutral-400">
+              <div className="flex items-center justify-center h-24 text-xs text-slate-500">
                 No events yet
               </div>
             ) : (
@@ -410,19 +410,19 @@ items.forEach(({ event, decision }) => {
 
           {/* Risk Score Sparkline */}
           <div className="theme-card p-4">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
               Risk Score Trend
             </div>
-            <div className="text-[9px] text-neutral-400 mb-3">Last 20 events</div>
+            <div className="text-[10px] text-slate-500 mb-3">Last 20 events</div>
             <div className="flex justify-center mt-2">
               <Sparkline scores={stats.recentRisks} />
             </div>
             {stats.recentRisks.length > 0 && (
-              <div className="flex justify-between text-[9px] text-neutral-400 mt-2 px-1">
+              <div className="flex justify-between text-[10px] text-slate-500 mt-2 px-1">
                 <span>oldest</span>
                 <span>
                   latest:{' '}
-                  <span className="font-mono font-semibold text-neutral-700">
+                  <span className="font-mono font-semibold text-slate-300">
                     {(stats.recentRisks[stats.recentRisks.length - 1] * 100).toFixed(0)}%
                   </span>
                 </span>
@@ -433,11 +433,11 @@ items.forEach(({ event, decision }) => {
 
         {/* ── Evaluated Modules by Source ─────────────────────────────────────────────── */}
         <div className="theme-card p-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
             Evaluated Modules (per Source)
           </div>
           {stats.total === 0 ? (
-            <div className="text-xs text-neutral-400 text-center py-4">
+            <div className="text-xs text-slate-500 text-center py-4">
               Trigger events to see evaluated modules
             </div>
           ) : (
@@ -449,10 +449,10 @@ items.forEach(({ event, decision }) => {
                   return (
                     <div key={source} className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                           {source.toUpperCase()}
                         </span>
-                        <span className="text-[10px] font-mono text-neutral-400">
+                        <span className="text-[10px] font-mono text-slate-500">
                           ({stats.sourceCounts[source]} events)
                         </span>
                       </div>
@@ -460,7 +460,7 @@ items.forEach(({ event, decision }) => {
                         {modules.map((mod) => (
                           <span
                             key={mod}
-                            className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-neutral-100 text-neutral-700 border border-neutral-200/80"
+                            className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#0a1628] text-slate-400 border border-cyan-900/20"
                           >
                             {moduleDisplayNames[mod] ?? mod}
                           </span>
@@ -475,14 +475,14 @@ items.forEach(({ event, decision }) => {
 
         {/* ── Modules Recorded in Decision Evidence ────────────────────────────── */}
         <div className="theme-card p-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
             Modules Recorded in Decision Evidence
           </div>
-          <div className="text-[10px] text-neutral-400 mb-3">
+          <div className="text-[10px] text-slate-500 mb-3">
             Includes checks recorded during evaluation; not every listed module changed the final verdict.
           </div>
           {stats.topModules.length === 0 ? (
-            <div className="text-xs text-neutral-400 text-center py-4">
+            <div className="text-xs text-slate-500 text-center py-4">
               Trigger events to see module activity
             </div>
           ) : (
@@ -490,18 +490,18 @@ items.forEach(({ event, decision }) => {
               {stats.topModules.map(([mod, count], idx) => {
                 const maxCount = stats.topModules[0][1]
                 const pct = (count / maxCount) * 100
-                const barColors = ['bg-violet-300', 'bg-blue-300', 'bg-emerald-300', 'bg-amber-300', 'bg-rose-300']
+                const barColors = ['bg-violet-400', 'bg-blue-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400']
                 return (
                   <div key={mod} className="flex items-center gap-3">
-                    <span className="text-[10px] font-mono text-neutral-400 w-4 text-right">{idx + 1}</span>
-                    <span className="text-[11px] font-medium text-neutral-700 w-44 truncate">{moduleDisplayNames[mod] ?? mod}</span>
-                    <div className="flex-1 bg-neutral-100 rounded-full h-2 overflow-hidden">
+                    <span className="text-[10px] font-mono text-slate-500 w-4 text-right">{idx + 1}</span>
+                    <span className="text-[11px] font-medium text-slate-300 w-44 truncate">{moduleDisplayNames[mod] ?? mod}</span>
+                    <div className="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${barColors[idx]}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-[10px] font-mono font-semibold text-neutral-600 w-6 text-right">{count}</span>
+                    <span className="text-[10px] font-mono font-semibold text-slate-400 w-6 text-right">{count}</span>
                   </div>
                 )
               })}
