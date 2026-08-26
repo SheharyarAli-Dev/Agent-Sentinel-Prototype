@@ -149,8 +149,50 @@ def build_canonical_action(event: EventCreate, agent_identity: Optional[str] = N
     Build a CanonicalAction from an EventCreate.
 
     Extracts and normalizes the semantically relevant fields from the event.
+    For coding_proposal events, includes coding-specific fields in the
+    canonical representation to bind the exact-action contract.
     """
     payload = event.payload or {}
+
+    # Determine agent identity from source and payload
+    agent_id = agent_identity
+    if not agent_id:
+        if payload.get("agent_id"):
+            agent_id = str(payload["agent_id"])
+        elif payload.get("agent"):
+            agent_id = str(payload["agent"])
+        else:
+            agent_id = f"{event.source}-default"
+
+    # Coding proposal: build canonical with coding-specific fields
+    if event.event_type == "coding_proposal" and payload.get("relative_path"):
+        target = str(payload.get("relative_path", ""))
+        expected_effect = f"file_write: {target}"
+
+        # Normalized parameters for coding proposal (exclude volatile fields)
+        volatile_keys = {
+            "session_id", "request_id", "transaction_id", "timestamp",
+            "nonce", "correlation_id", "trace_id", "span_id"
+        }
+        coding_keys = {
+            "action_type", "relative_path", "expected_old_hash",
+            "new_content", "expected_new_hash", "test_profile",
+            "protected_invariants",
+        }
+        normalized_params = {
+            k: v for k, v in payload.items()
+            if k in coding_keys and k not in volatile_keys and v is not None
+        }
+
+        return CanonicalAction(
+            source=event.source,
+            agent_identity=agent_id,
+            action_type=event.event_type,
+            target=target,
+            normalized_parameters=normalized_params,
+            original_goal=event.original_goal,
+            expected_effect=expected_effect,
+        )
 
     # Extract target from various possible payload fields
     target = None
@@ -168,16 +210,6 @@ def build_canonical_action(event: EventCreate, agent_identity: Optional[str] = N
         k: v for k, v in payload.items()
         if k not in volatile_keys and v is not None
     }
-
-    # Determine agent identity from source and payload
-    agent_id = agent_identity
-    if not agent_id:
-        if payload.get("agent_id"):
-            agent_id = str(payload["agent_id"])
-        elif payload.get("agent"):
-            agent_id = str(payload["agent"])
-        else:
-            agent_id = f"{event.source}-default"
 
     # Expected effect from description or command
     expected_effect = None

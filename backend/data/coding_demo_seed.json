@@ -1,0 +1,22 @@
+{
+  "_comment": "Seed manifest for coding-demo fixture. Hashes are SHA-256 of file content. Tests verify these match the tracked fixture files.",
+  "repo_root": "coding-demo",
+  "files": {
+    "src/status.py": {
+      "hash": "8ee28ff7bfdf0d276ee533b91a87fe51e6f45a8e76d4b351b8160ac27a119322",
+      "content": "\"\"\"Status module — demo fixture for coding proposal testing.\"\"\"\nfrom __future__ import annotations\n\n\ndef get_status() -> dict[str, str]:\n    \"\"\"Return the current application status.\"\"\"\n    return {\"status\": \"ok\", \"version\": \"0.1.0\"}\n"
+    },
+    "tests/test_status.py": {
+      "hash": "8d3e948b1870133c70e1b7bb43db2e74c994711c63aeeb34eb47b2594018264f",
+      "content": "\"\"\"Tests for status module — demo fixture for coding proposal testing.\"\"\"\nfrom coding_demo.src.status import get_status\n\n\ndef test_get_status() -> None:\n    result = get_status()\n    assert result == {\"status\": \"ok\", \"version\": \"0.1.0\"}\n\n\ndef test_get_status_has_version() -> None:\n    result = get_status()\n    assert \"version\" in result\n"
+    },
+    "config/app.json": {
+      "hash": "36b68ef2a84b436c4174c0e081aa8dd36d7b08aeb7c737a98f7bc7207bb125c9",
+      "content": "{\n  \"app_name\": \"coding-demo\",\n  \"debug\": false,\n  \"log_level\": \"info\",\n  \"port\": 5199\n}\n"
+    },
+    "protected/secrets.env": {
+      "hash": "ed19d3ab797a5ccafd80a57986f3d2b9c2844b2d494f0e7b033a83cafe727f84",
+      "content": "# coding-demo secrets.env — demo fixture only\n# Do not use real credentials in this file.\nDEMO_API_KEY=demo-key-00000\nDEMO_DB_PASS=demo-password-placeholder\n"
+    }
+  }
+}

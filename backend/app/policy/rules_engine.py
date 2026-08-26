@@ -109,7 +109,28 @@ def _run_cursor_modules(event: EventCreate) -> list[DecisionCreate]:
     from app.policy.predictive_defence import evaluate_predictive_defence
 
     results: list[DecisionCreate] = []
-    results.append(evaluate_plan(event))
+
+    # Coding proposal: run the coding-specific contract and path evaluation
+    if event.event_type == "coding_proposal":
+        from app.policy.coding_proposal_engine import evaluate_coding_proposal
+        from app.models.coding_proposal import CodingProposal, ProposalValidationError
+        try:
+            proposal = CodingProposal.model_validate(event.payload)
+            results.append(evaluate_coding_proposal(event, proposal))
+        except (ProposalValidationError, Exception) as exc:
+            # Invalid proposal fails safely with BLOCK
+            results.append(DecisionCreate(
+                verdict="BLOCK",
+                reasons=[f"Invalid coding proposal: {exc}"],
+                suggested_fix="Fix the coding proposal and resubmit.",
+                module="coding_proposal_engine",
+                risk_score=1.0,
+            ))
+        # Still run planning verification for scope/step checks
+        results.append(evaluate_plan(event))
+    else:
+        results.append(evaluate_plan(event))
+
     results.append(evaluate_context_integrity(event))   # prompt-injection defense
     results.append(evaluate_tool_integrity(event))      # MCP tool-poisoning defense
     results.append(evaluate_sequence(event))            # trajectory analysis

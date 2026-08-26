@@ -1,0 +1,50 @@
+{
+  "_comment": "Path classification rules for coding proposals. Precedence: structural rejection first, then protected > sensitive > allowed. Unmatched defaults to sensitive (WARN).",
+  "tiers": {
+    "protected": {
+      "paths": [
+        "protected/",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.secret",
+        "secrets/",
+        "private/",
+        "credentials.json",
+        "service-account.json"
+      ],
+      "patterns": [
+        "*.env",
+        "*secret*",
+        "*password*",
+        "*credential*",
+        "*.pem",
+        "*.key"
+      ],
+      "verdict": "BLOCK"
+    },
+    "sensitive": {
+      "paths": [
+        "config/",
+        "tests/"
+      ],
+      "patterns": [
+        "*.json",
+        "*.yml",
+        "*.yaml"
+      ],
+      "verdict": "WARN"
+    },
+    "allowed": {
+      "paths": [
+        "src/"
+      ],
+      "patterns": [
+        "*.py"
+      ],
+      "verdict": "ALLOW"
+    }
+  },
+  "max_content_size_chars": 50000,
+  "valid_test_profiles": ["unit", "none"]
+}
