@@ -136,6 +136,7 @@ from app.models.decision import DecisionORM  # noqa: F401
 from app.models.liveops_execution import LiveOpsExecutionORM  # noqa: F401
 from app.models.operation import OperationORM  # noqa: F401
 from app.models.coding_execution import CodingExecutionORM  # noqa: F401
+from app.models.coding_outcome import CodingOutcomeORM  # noqa: F401
 
 Base.metadata.create_all(bind=engine)
 logger.info("Database tables created/verified.")

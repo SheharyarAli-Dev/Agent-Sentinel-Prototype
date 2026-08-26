@@ -94,6 +94,8 @@ class CodingExecutionResult(BaseModel):
     restoration_attempted: bool = False
     restoration_succeeded: bool | None = None
     executed_at: str = ""
+    old_content: bytes = b""
+    new_content: bytes = b""
 
     @field_validator(
         "before_hash", "after_hash", "expected_old_hash", "expected_new_hash"
@@ -478,6 +480,7 @@ class CodingWorkspace:
                 )
 
             # ── 15. Success ───────────────────────────────────────────────────
+            observed_new_bytes = target.read_bytes()
             return CodingExecutionResult(
                 status="executed",
                 relative_path=rel,
@@ -488,6 +491,8 @@ class CodingWorkspace:
                 bytes_written=len(proposal.new_content.encode("utf-8")),
                 changed_files=changed,
                 executed_at=now,
+                old_content=current_bytes,
+                new_content=observed_new_bytes,
             )
 
     def cleanup(self) -> None:
@@ -499,6 +504,29 @@ class CodingWorkspace:
         if self._runtime_root is not None and self._runtime_root.exists():
             shutil.rmtree(str(self._runtime_root), ignore_errors=True)
             self._runtime_root = None
+
+    def get_protected_invariant_hashes(self) -> dict[str, str]:
+        """Compute byte-hash of every protected fixture file in the workspace.
+
+        Returns a mapping of relative path → SHA-256 hex digest for all
+        concretely classified protected fixture files.  Returns empty dict
+        if workspace is not active.
+        """
+        if self._runtime_root is None:
+            return {}
+        workspace = self._runtime_root / "coding-demo"
+        if not workspace.is_dir():
+            return {}
+        seed = self._load_seed()
+        rules = _load_path_rules()
+        protected_prefixes = rules.get("tiers", {}).get("protected", {}).get("paths", [])
+        result: dict[str, str] = {}
+        for rel_path in seed.get("files", {}):
+            if any(rel_path.startswith(p) or rel_path == p for p in protected_prefixes):
+                fp = workspace / rel_path
+                if fp.is_file():
+                    result[rel_path] = _file_hash(fp)
+        return result
 
     def __enter__(self) -> "CodingWorkspace":
         self.copy_demo()

@@ -60,6 +60,7 @@ from app.models.operation import (
     update_operation_state,
 )
 from app.sandbox.coding_executor import CodingWorkspace
+from app.models.coding_outcome import CodingOutcomeORM, CodingOutcomeResponse
 
 logger = logging.getLogger(__name__)
 
@@ -400,6 +401,7 @@ async def execute_coding_action(
     db.commit()
 
     executor_result = None
+    outcome = None
     try:
         workspace = CodingWorkspace()
         try:
@@ -407,7 +409,19 @@ async def execute_coding_action(
             executor_result = workspace.execute_file_write(
                 proposal, review_authorized=review_authorized
             )
+            # ── 12a. Capture evidence before workspace cleanup (Stage 4) ────
+            workspace_root = workspace.runtime_root / "coding-demo" if workspace._runtime_root else None
+            protected_before = workspace.get_protected_invariant_hashes() if workspace._runtime_root else {}
         finally:
+            # Capture protected hashes after execution, before cleanup
+            protected_after = {}
+            if workspace._runtime_root:
+                try:
+                    protected_after = workspace.get_protected_invariant_hashes()
+                except Exception:
+                    pass
+            old_content = executor_result.old_content if executor_result else b""
+            new_content = executor_result.new_content if executor_result else b""
             workspace.cleanup()
     except Exception as exc:
         logger.exception("Coding workspace setup failed for event %d", event_id)
@@ -459,22 +473,40 @@ async def execute_coding_action(
             "Operation lifecycle update failed for event %d: %s", event_id, exc
         )
 
+    # ── 14a. Outcome verification (Stage 4) ─────────────────────────────────
+    try:
+        from app.coding.outcome import verify_coding_outcome
+        outcome = verify_coding_outcome(
+            db, ledger, event,
+            old_content=old_content,
+            new_content=new_content,
+            protected_before=protected_before,
+            protected_after=protected_after,
+        )
+    except Exception as exc:
+        logger.warning("Outcome verification failed for event %d: %s", event_id, exc)
+        outcome = None
+
     # ── 15. Broadcast bounded WebSocket evidence ──────────────────────────────
     try:
         from app.websocket.manager import manager
 
-        await manager.broadcast(
-            {
-                "type": "coding_execution_complete",
-                "event_id": event_id,
-                "execution_id": ledger.id,
-                "operation_id": operation.operation_id,
-                "status": ledger.status,
-                "relative_path": ledger.relative_path,
-                "error_code": ledger.error_code or "",
-                "replayed": False,
-            }
-        )
+        ws_payload: dict[str, Any] = {
+            "type": "coding_execution_complete",
+            "event_id": event_id,
+            "execution_id": ledger.id,
+            "operation_id": operation.operation_id,
+            "status": ledger.status,
+            "relative_path": ledger.relative_path,
+            "error_code": ledger.error_code or "",
+            "replayed": False,
+        }
+        if outcome is not None and outcome.id:
+            ws_payload["verification_status"] = outcome.verification_status
+            ws_payload["invariant_violation_count"] = len(outcome.get_invariant_violations())
+            ws_payload["diff_truncated"] = outcome.diff_truncated
+            ws_payload["diff_omitted_reason"] = outcome.diff_omitted_reason
+        await manager.broadcast(ws_payload)
     except Exception as exc:
         logger.warning("WebSocket broadcast failed for event %d: %s", event_id, exc)
 
@@ -515,3 +547,58 @@ async def get_coding_execution(
             detail=f"No execution record found for event {event_id}.",
         )
     return _build_response(ledger, replayed=True)
+
+
+# ── GET /api/coding/outcome/{event_id} ──────────────────────────────────────
+
+
+@router.get(
+    "/outcome/{event_id}",
+    response_model=CodingOutcomeResponse,
+    summary="Get the outcome verification record for a coding event",
+    description=(
+        "Returns the persisted outcome verification result for a coding_proposal event. "
+        "If an execution exists but no outcome has been persisted, returns 404. "
+        "Does not reobserve a temporary workspace that has already been cleaned."
+    ),
+)
+async def get_coding_outcome(
+    event_id: int,
+    db: Session = Depends(get_db),
+) -> CodingOutcomeResponse:
+    outcome = db.scalar(
+        select(CodingOutcomeORM).where(CodingOutcomeORM.event_id == event_id)
+    )
+    if outcome is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No outcome record found for event {event_id}.",
+        )
+    return CodingOutcomeResponse(
+        id=outcome.id,
+        event_id=outcome.event_id,
+        execution_id=outcome.execution_id,
+        operation_id=outcome.operation_id,
+        action_fingerprint=outcome.action_fingerprint,
+        verification_status=outcome.verification_status,
+        expected_path=outcome.expected_path,
+        observed_path=outcome.observed_path,
+        expected_old_hash=outcome.expected_old_hash,
+        observed_old_hash=outcome.observed_old_hash,
+        expected_new_hash=outcome.expected_new_hash,
+        observed_final_hash=outcome.observed_final_hash,
+        expected_changed_files=outcome.get_expected_changed_files(),
+        observed_modified=outcome.get_observed_modified(),
+        unexpected_created=outcome.get_unexpected_created(),
+        unexpected_deleted=outcome.get_unexpected_deleted(),
+        unexpected_modified=outcome.get_unexpected_modified(),
+        invariant_violations=outcome.get_invariant_violations(),
+        diff_text=outcome.diff_text,
+        diff_truncated=outcome.diff_truncated,
+        diff_omitted_reason=outcome.diff_omitted_reason,
+        verification_error_code=outcome.verification_error_code,
+        verification_error_message=outcome.verification_error_message,
+        verified_at=outcome.verified_at,
+        created_at=outcome.created_at,
+        replayed=True,
+    )
