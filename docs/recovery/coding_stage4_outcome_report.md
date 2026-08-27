@@ -1,8 +1,8 @@
 # Stage 4: Coding Outcome Verification and Bounded Diff Evidence — Recovery Report
 
-**Date:** 2026-08-26
+**Date:** 2026-08-27
 **Branch:** `feature/coding-core-usecase-dark`
-**Commit:** pending (feat: add coding outcome verification and bounded diff evidence)
+**Commit:** fix: capture genuine protected invariant evidence
 
 ## Summary
 
@@ -15,11 +15,12 @@ Stage 4 adds post-execution verification that compares observed workspace state 
 | `backend/app/coding/__init__.py` | NEW | Empty package init |
 | `backend/app/coding/outcome.py` | NEW | Verification logic, diff generation, persistence |
 | `backend/app/models/coding_outcome.py` | NEW | `CodingOutcomeORM` + `CodingOutcomeResponse` |
-| `backend/tests/test_coding_outcome.py` | NEW | 35 integration tests |
+| `backend/tests/test_coding_outcome.py` | MODIFIED | 42 integration tests (expanded from 35) |
 | `backend/app/sandbox/coding_executor.py` | MODIFIED | `old_content`/`new_content` in result, `get_protected_invariant_hashes()` |
 | `backend/app/api/coding_execution.py` | MODIFIED | Evidence capture (step 12a), outcome verification (step 14a), GET /outcome endpoint |
 | `backend/app/main.py` | MODIFIED | Registered `CodingOutcomeORM` |
 | `backend/app/models/__init__.py` | MODIFIED | Exports `CodingOutcomeORM`/`CodingOutcomeResponse` |
+| `docs/recovery/coding_stage4_outcome_report.md` | MODIFIED | Updated with fix details |
 
 ## New Endpoints
 
@@ -64,13 +65,16 @@ Returns the persisted outcome record for a coding event. Does not recompute — 
 
 ## Evidence Capture Flow (Step 12a)
 
-After `execute_file_write()` returns, before `workspace.cleanup()`:
-1. `protected_before = workspace.get_protected_invariant_hashes()`
-2. Capture `old_content` and `new_content` from executor result
+**Fixed in this commit:** `protected_before` is now captured BEFORE `execute_file_write()` is called, not after.
 
-After cleanup start:
-3. `protected_after = workspace.get_protected_invariant_hashes()`
-4. Both passed to `verify_coding_outcome()`
+1. `workspace.copy_demo()` — creates runtime workspace
+2. `protected_before = workspace.get_protected_invariant_hashes()` — **BEFORE execution**
+3. `executor_result = workspace.execute_file_write(...)` — execution mutates workspace
+4. `protected_after = workspace.get_protected_invariant_hashes()` — AFTER execution, before cleanup
+5. `old_content` and `new_content` captured from executor result
+6. `workspace.cleanup()` — removes temporary workspace
+
+This ensures protected invariant comparison detects execution-time tampering, not just post-execution snapshots.
 
 ## Persistence Sequence
 
@@ -89,15 +93,15 @@ NOT broadcast: full diff, file contents, proposal content, protected hashes, sec
 ## Test Results
 
 ```
-Stage 4: 35 passed (test_coding_outcome.py)
+Stage 4: 42 passed (test_coding_outcome.py)
 Stage 3: 28 passed (test_coding_execution.py)
 Stage 1: 51 passed (test_coding_proposal.py)
 Stage 2: 43 passed, 2 skipped (test_coding_executor.py)
-Full suite: 437 passed, 2 skipped × 3 consecutive runs
+Full suite: 444 passed, 2 skipped × 3 consecutive runs
 Frontend build: OK
 Coding-demo hashes: All 4 files match seed
 Seed file: Unchanged (no diff)
-Working tree: 7 expected changes only
+Working tree: 8 expected changes only
 ```
 
 ## Scope and Limitations
@@ -107,6 +111,7 @@ Working tree: 7 expected changes only
 - `PARTIAL` status is reserved for future multi-file-write implementations.
 - Outcome verification failure does not rewrite the execution record status — this is intentional to preserve execution ledger integrity.
 - `GET /api/coding/outcome/{event_id}` is idempotent and does not recompute.
+- Protected invariant hashes are captured before and after execution to detect tampering during the write operation.
 
 ## Seed Manifest
 

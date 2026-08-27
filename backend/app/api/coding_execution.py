@@ -406,14 +406,13 @@ async def execute_coding_action(
         workspace = CodingWorkspace()
         try:
             workspace.copy_demo()
+            # ── 12a. Capture protected-invariant hashes BEFORE execution ───
+            protected_before = workspace.get_protected_invariant_hashes() if workspace._runtime_root else {}
             executor_result = workspace.execute_file_write(
                 proposal, review_authorized=review_authorized
             )
-            # ── 12a. Capture evidence before workspace cleanup (Stage 4) ────
-            workspace_root = workspace.runtime_root / "coding-demo" if workspace._runtime_root else None
-            protected_before = workspace.get_protected_invariant_hashes() if workspace._runtime_root else {}
         finally:
-            # Capture protected hashes after execution, before cleanup
+            # Capture protected-invariant hashes AFTER execution, before cleanup
             protected_after = {}
             if workspace._runtime_root:
                 try:

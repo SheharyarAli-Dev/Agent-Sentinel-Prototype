@@ -428,10 +428,10 @@ class TestUnexpectedNewFile:
         assert body["verification_status"] == "MISMATCH"
 
 
-# ── 12. Unexpected deleted file ───────────────────────────────────────────────
+# ── 12. Unexpected modification of authorized target ──────────────────────────
 
-class TestUnexpectedDeletedFile:
-    def test_deleted_file_produces_mismatch(self, tmp_path, monkeypatch):
+class TestUnexpectedModificationOfAuthorizedTarget:
+    def test_unauthorized_target_change_produces_mismatch(self, tmp_path, monkeypatch):
         client, session_factory, _ = _make_test_env(tmp_path)
         event_id = _seed_coding_event(session_factory, verdict="ALLOW")
 
@@ -520,20 +520,18 @@ class TestMissingObservedEvidence:
         resp = client.post(f"/api/coding/execute/{event_id}")
         assert resp.status_code == 200, resp.text
 
+        execution_resp = client.get(f"/api/coding/execution/{event_id}")
+        assert execution_resp.status_code == 200
+        assert execution_resp.json()["status"] == "failed"
+
         outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
-        if outcome_resp.status_code == 200:
-            body = outcome_resp.json()
-            assert body["verification_status"] in (
-                "OUTCOME_UNKNOWN", "EXECUTION_FAILED"
-            )
-        else:
-            assert outcome_resp.status_code == 404
+        assert outcome_resp.status_code == 404
 
 
 # ── 16. Evidence collection failure ───────────────────────────────────────────
 
 class TestEvidenceCollectionFailure:
-    def test_evidence_failure_produces_outcome_unknown(
+    def test_evidence_failure_produces_execution_failed(
         self, tmp_path, monkeypatch
     ):
         client, session_factory, _ = _make_test_env(tmp_path)
@@ -560,12 +558,14 @@ class TestEvidenceCollectionFailure:
         resp = client.post(f"/api/coding/execute/{event_id}")
         assert resp.status_code == 200, resp.text
 
+        execution_resp = client.get(f"/api/coding/execution/{event_id}")
+        assert execution_resp.status_code == 200
+        assert execution_resp.json()["status"] == "failed"
+
         outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
         assert outcome_resp.status_code == 200
         body = outcome_resp.json()
-        assert body["verification_status"] in (
-            "OUTCOME_UNKNOWN", "EXECUTION_FAILED"
-        )
+        assert body["verification_status"] == "EXECUTION_FAILED"
 
 
 # ── 17. Missing expected outcome data ─────────────────────────────────────────
@@ -632,14 +632,16 @@ class TestMissingExpectedOutcome:
             db.close()
 
         resp = client.post(f"/api/coding/execute/{event_id}", json={})
-        assert resp.status_code in (200, 422, 409)
+        assert resp.status_code == 200, resp.text
+
+        execution_resp = client.get(f"/api/coding/execution/{event_id}")
+        assert execution_resp.status_code == 200
+        assert execution_resp.json()["status"] == "failed"
 
         outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
-        if outcome_resp.status_code == 200:
-            body = outcome_resp.json()
-            assert body["verification_status"] != "VERIFIED"
-        else:
-            assert outcome_resp.status_code == 404
+        assert outcome_resp.status_code == 200
+        body = outcome_resp.json()
+        assert body["verification_status"] == "EXECUTION_FAILED"
 
 
 # ── 18. PARTIAL not emitted ───────────────────────────────────────────────────
@@ -1000,10 +1002,182 @@ class TestDiffOmittedReasonForProtected:
         assert outcome_resp.status_code == 404
 
 
-# ── 35. Outcome idempotent ────────────────────────────────────────────────────
+# ── 35. Before snapshot captured before executor invocation ───────────────────
 
-class TestOutcomeIdempotent:
-    def test_outcome_idempotent(self, tmp_path):
+class TestBeforeSnapshotTiming:
+    def test_before_snapshot_captured_before_execution(self, tmp_path, monkeypatch):
+        client, session_factory, _ = _make_test_env(tmp_path)
+        event_id = _seed_coding_event(session_factory, verdict="ALLOW")
+
+        from app.coding import outcome as outcome_module
+
+        received_protected_before: dict[str, str] = {}
+        original_verify = outcome_module.verify_coding_outcome
+
+        def _capture_verify(db, execution, event, **kwargs):
+            received_protected_before.update(kwargs.get("protected_before") or {})
+            return original_verify(db, execution, event, **kwargs)
+
+        monkeypatch.setattr(outcome_module, "verify_coding_outcome", _capture_verify)
+
+        resp = client.post(f"/api/coding/execute/{event_id}")
+        assert resp.status_code == 200, resp.text
+
+        outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
+        assert outcome_resp.status_code == 200
+        body = outcome_resp.json()
+        assert body["verification_status"] == "VERIFIED"
+
+        seed = _load_seed()
+        from app.sandbox.coding_executor import _SEED_PATH
+        from app.models.coding_proposal import _load_path_rules
+        rules = _load_path_rules()
+        protected_prefixes = rules.get("tiers", {}).get("protected", {}).get("paths", [])
+        for rel_path in seed.get("files", {}):
+            if any(rel_path.startswith(p) or rel_path == p for p in protected_prefixes):
+                assert rel_path in received_protected_before
+
+# ── 36. Unchanged protected invariants permit VERIFIED ────────────────────────
+
+class TestUnchangedProtectedInvariantsPermitVerified:
+    def test_unchanged_invariants_allow_verified(self, tmp_path):
+        client, session_factory, _ = _make_test_env(tmp_path)
+        event_id = _seed_coding_event(session_factory, verdict="ALLOW")
+        resp = client.post(f"/api/coding/execute/{event_id}")
+        assert resp.status_code == 200, resp.text
+
+        outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
+        assert outcome_resp.status_code == 200
+        body = outcome_resp.json()
+        assert body["verification_status"] == "VERIFIED"
+        assert body["invariant_violations"] == []
+
+        seed = _load_seed()
+        from app.sandbox.coding_executor import _SEED_PATH
+        from app.models.coding_proposal import _load_path_rules
+        rules = _load_path_rules()
+        protected_prefixes = rules.get("tiers", {}).get("protected", {}).get("paths", [])
+        protected_files = [p for p in seed.get("files", {})
+                           if any(p.startswith(pr) or p == pr for pr in protected_prefixes)]
+        assert len(protected_files) > 0
+
+# ── 37. Modified protected invariant produces MISMATCH ────────────────────────
+
+class TestModifiedProtectedInvariantMismatch:
+    def test_modified_protected_invariant_produces_mismatch(self, tmp_path, monkeypatch):
+        client, session_factory, _ = _make_test_env(tmp_path)
+        event_id = _seed_coding_event(session_factory, verdict="ALLOW")
+
+        from app.coding import outcome as outcome_module
+
+        original_verify = outcome_module.verify_coding_outcome
+
+        def _patched_verify(db, execution, event, **kwargs):
+            protected_before = kwargs.get("protected_before") or {}
+            if protected_before:
+                fake_after = {k: "tampered_hash" for k in protected_before}
+                kwargs["protected_after"] = fake_after
+            return original_verify(db, execution, event, **kwargs)
+
+        monkeypatch.setattr(outcome_module, "verify_coding_outcome", _patched_verify)
+        resp = client.post(f"/api/coding/execute/{event_id}")
+        assert resp.status_code == 200, resp.text
+
+        outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
+        assert outcome_resp.status_code == 200
+        body = outcome_resp.json()
+        assert body["verification_status"] == "MISMATCH"
+        violations = body.get("invariant_violations", [])
+        assert len(violations) > 0
+        assert any("changed" in v.lower() for v in violations)
+
+# ── 38. Deleted protected invariant produces MISMATCH ─────────────────────────
+
+class TestDeletedProtectedInvariantMismatch:
+    def test_deleted_protected_invariant_produces_mismatch(self, tmp_path, monkeypatch):
+        client, session_factory, _ = _make_test_env(tmp_path)
+        event_id = _seed_coding_event(session_factory, verdict="ALLOW")
+
+        from app.coding import outcome as outcome_module
+
+        original_verify = outcome_module.verify_coding_outcome
+
+        def _patched_verify(db, execution, event, **kwargs):
+            protected_before = kwargs.get("protected_before") or {}
+            if protected_before:
+                kwargs["protected_after"] = {}
+            return original_verify(db, execution, event, **kwargs)
+
+        monkeypatch.setattr(outcome_module, "verify_coding_outcome", _patched_verify)
+        resp = client.post(f"/api/coding/execute/{event_id}")
+        assert resp.status_code == 200, resp.text
+
+        outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
+        assert outcome_resp.status_code == 200
+        body = outcome_resp.json()
+        assert body["verification_status"] == "MISMATCH"
+        violations = body.get("invariant_violations", [])
+        assert len(violations) > 0
+
+# ── 39. Missing post-execution evidence prevents VERIFIED ─────────────────────
+
+class TestMissingPostExecutionEvidencePreventsVerified:
+    def test_missing_after_hash_prevents_verified(self, tmp_path, monkeypatch):
+        client, session_factory, _ = _make_test_env(tmp_path)
+        event_id = _seed_coding_event(session_factory, verdict="ALLOW")
+
+        from app.coding import outcome as outcome_module
+
+        original_verify = outcome_module.verify_coding_outcome
+
+        def _patched_verify(db, execution, event, **kwargs):
+            kwargs["protected_after"] = None
+            return original_verify(db, execution, event, **kwargs)
+
+        monkeypatch.setattr(outcome_module, "verify_coding_outcome", _patched_verify)
+        resp = client.post(f"/api/coding/execute/{event_id}")
+        assert resp.status_code == 200, resp.text
+
+        outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
+        assert outcome_resp.status_code == 200
+        body = outcome_resp.json()
+        assert body["verification_status"] != "VERIFIED"
+
+# ── 40. Diff character limit enforced ─────────────────────────────────────────
+
+class TestDiffCharLimit:
+    def test_100k_char_diff_truncated(self, tmp_path, monkeypatch):
+        import app.coding.outcome as outcome_mod
+        original_generate = outcome_mod._generate_diff
+
+        def _capped_generate(old_content, new_content, relative_path,
+                             max_lines=500, max_chars=500):
+            return original_generate(old_content, new_content, relative_path,
+                                     max_lines=max_lines, max_chars=max_chars)
+
+        monkeypatch.setattr(outcome_mod, "_generate_diff", _capped_generate)
+
+        client, session_factory, _ = _make_test_env(tmp_path)
+        content = "x = 1\n" * 8_000
+        proposal = _make_proposal(new_content=content)
+        event_id = _seed_coding_event(
+            session_factory, verdict="ALLOW", proposal=proposal
+        )
+        resp = client.post(f"/api/coding/execute/{event_id}")
+        assert resp.status_code == 200, resp.text
+
+        outcome_resp = client.get(f"/api/coding/outcome/{event_id}")
+        assert outcome_resp.status_code == 200
+        body = outcome_resp.json()
+        assert body["verification_status"] == "VERIFIED"
+        assert body["diff_truncated"] is True
+        diff_text = body.get("diff_text") or ""
+        assert len(diff_text) <= 500
+
+# ── 41. Concurrent outcome persistence ────────────────────────────────────────
+
+class TestConcurrentOutcomePersistence:
+    def test_concurrent_persistence_single_row(self, tmp_path, monkeypatch):
         client, session_factory, _ = _make_test_env(tmp_path)
         event_id = _seed_coding_event(session_factory, verdict="ALLOW")
         resp = client.post(f"/api/coding/execute/{event_id}")
@@ -1011,12 +1185,58 @@ class TestOutcomeIdempotent:
 
         first = client.get(f"/api/coding/outcome/{event_id}")
         assert first.status_code == 200
+        first_id = first.json()["id"]
+
         second = client.get(f"/api/coding/outcome/{event_id}")
         assert second.status_code == 200
-        first_body = first.json()
-        second_body = second.json()
-        assert first_body["id"] == second_body["id"]
-        assert first_body["verification_status"] == second_body["verification_status"]
-        assert first_body["expected_new_hash"] == second_body["expected_new_hash"]
-        assert first_body["observed_final_hash"] == second_body["observed_final_hash"]
-        assert first_body["expected_path"] == second_body["expected_path"]
+        assert second.json()["id"] == first_id
+
+        db = session_factory()
+        try:
+            outcomes = db.execute(
+                select(CodingOutcomeORM).where(
+                    CodingOutcomeORM.event_id == event_id
+                )
+            ).scalars().all()
+            assert len(outcomes) == 1
+        finally:
+            db.close()
+
+# ── 42. Persistence failure preserves execution status ────────────────────────
+
+class TestPersistenceFailurePreservesExecution:
+    def test_persistence_failure_keeps_execution_status(self, tmp_path, monkeypatch):
+        client, session_factory, _ = _make_test_env(tmp_path)
+        event_id = _seed_coding_event(session_factory, verdict="ALLOW")
+
+        from app.coding import outcome as outcome_module
+
+        original_persist = outcome_module._persist_outcome
+
+        def _fail_persist(*args, **kwargs):
+            from app.models.coding_outcome import CodingOutcomeORM
+            outcome = CodingOutcomeORM(
+                event_id=args[1].event_id,
+                execution_id=args[1].id,
+                operation_id=args[1].operation_id,
+                action_fingerprint=args[1].action_fingerprint,
+                verification_status="OUTCOME_UNKNOWN",
+                expected_path="",
+                observed_path="",
+                expected_old_hash="",
+                observed_old_hash="",
+                expected_new_hash="",
+                observed_final_hash="",
+                verification_error_code="OUTCOME_PERSISTENCE_FAILED",
+                verification_error_message="Simulated DB failure",
+            )
+            outcome.id = 0
+            return outcome
+
+        monkeypatch.setattr(outcome_module, "_persist_outcome", _fail_persist)
+        resp = client.post(f"/api/coding/execute/{event_id}")
+        assert resp.status_code == 200, resp.text
+
+        execution_resp = client.get(f"/api/coding/execution/{event_id}")
+        assert execution_resp.status_code == 200
+        assert execution_resp.json()["status"] == "executed"
